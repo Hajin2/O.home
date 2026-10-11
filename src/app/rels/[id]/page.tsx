@@ -224,6 +224,20 @@ function MiniProf({ member, char, isAdmin, onGo, onRemove, auUnregistered, side,
 }
 
 /** 페어에서 멤버가 비었을 때 자리 카드 */
+/** 잠금 카드 (포크) — 멤버 캐릭터가 이 사람에게 안 보일 때(멤버 공개·나만보기) 자리를 지킨다.
+ *  예전엔 카드가 아예 안 그려져 2인 배치(카드·일러스트·카드)가 한 칸씩 당겨졌다 */
+function LockedCard() {
+  return (
+    <div className="panel mini-prof" style={{ display: 'grid', placeItems: 'center', minHeight: 320 }}>
+      <div style={{ textAlign: 'center', color: 'var(--faint)', fontSize: 12.5, padding: 20, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 26, marginBottom: 8 }} aria-hidden>🔒</div>
+        <b style={{ display: 'block', color: 'var(--sub)', fontSize: 13.5, marginBottom: 2 }}>비공개 캐릭터</b>
+        권한이 있는 멤버만 볼 수 있어요
+      </div>
+    </div>
+  );
+}
+
 function EmptyCard({ isAdmin, onAdd }: { isAdmin: boolean; onAdd: () => void }) {
   return (
     <div className="panel mini-prof" style={{
@@ -930,7 +944,9 @@ export default function RelDetailPage() {
 
       {isDuo ? (
         <div className="rel-body" style={{ fontFamily: familyOf(auBodyFont) }}>
-          {pairSlots[0]
+          {charsLoaded && pairSlots[0] && !charOf(pairSlots[0].charId)
+            ? <LockedCard />
+            : pairSlots[0]
             ? <MiniProf member={pairSlots[0]} char={charOf(pairSlots[0].charId)} isAdmin={isAdmin}
                 auUnregistered={auUnregOf(pairSlots[0].charId)}
                 side="l" onMoveSide={() => moveSide(pairSlots[0]!.charId)}
@@ -992,7 +1008,9 @@ export default function RelDetailPage() {
               </div>
             )}
           </div>
-          {pairSlots[1]
+          {charsLoaded && pairSlots[1] && !charOf(pairSlots[1].charId)
+            ? <LockedCard />
+            : pairSlots[1]
             ? <MiniProf member={pairSlots[1]} char={charOf(pairSlots[1].charId)} isAdmin={isAdmin}
                 auUnregistered={auUnregOf(pairSlots[1].charId)}
                 side="r" onMoveSide={() => moveSide(pairSlots[1]!.charId)}

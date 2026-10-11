@@ -95,7 +95,7 @@ export default function TrpgDetailPage() {
   useEffect(() => {
     if (!loaded) return;
     if (!l) { if (!deletedRef.current) router.replace('/'); return; }
-    if (!baseAllowed && !unlocked && !l.password) router.replace('/');
+    // 권한이 없으면 홈으로 보내지 않고 이 자리에 잠금 화면을 띄운다 (포크 수정 — 아래 렌더 참고)
   }, [loaded, l, baseAllowed, unlocked, router]);
   const tryUnlock = () => {
     if (l?.password && pwTry === l.password) {
@@ -247,7 +247,26 @@ export default function TrpgDetailPage() {
   if (blocked) return blocked;
   if (!loaded || !l) return <section className="page" />;
   if (!baseAllowed && !unlocked) {
-    if (!l.password) return <section className="page" />;
+    // 잠금 화면 (포크 수정) — 예전엔 홈으로 튕겼다. 목록에서 잠긴 로그를 눌렀을 때 왜 못 보는지 알려 준다
+    if (!l.password) {
+      const needLogin = !user && l.visibility === 'member';
+      return (
+        <section className="page">
+          <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle></div>
+          <div className="panel" style={{ maxWidth: 420, margin: '0 auto', padding: '34px 26px', display: 'grid', gap: 10, justifyItems: 'center', textAlign: 'center' }}>
+            <div style={{ fontSize: 30, lineHeight: 1 }} aria-hidden>🔒</div>
+            <b style={{ fontSize: 'calc(15px*var(--fs,1))', color: 'var(--ink)', wordBreak: 'keep-all' }}>{l.title}</b>
+            <p className="hint" style={{ margin: 0 }}>
+              {needLogin ? '멤버에게만 공개된 로그예요 — 로그인하면 볼 수 있어요' : '열람 권한이 없는 로그예요'}
+            </p>
+            <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+              <button className="btn btn-ghost" onClick={() => router.push(tt.href)}>목록으로</button>
+              {needLogin && <button className="btn btn-dark" onClick={() => router.push('/login')}>로그인</button>}
+            </div>
+          </div>
+        </section>
+      );
+    }
     // 비밀번호 게이트 — 맞으면 이 세션 동안 열람 유지
     return (
       <section className="page">
