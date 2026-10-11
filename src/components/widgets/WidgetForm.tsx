@@ -193,11 +193,14 @@ export function WidgetForm({ initial, onSave, onCancel }: {
         .wf-tbl{display:grid;gap:6px}
         .wf-row{display:grid;gap:6px;align-items:center}
         .wf-row.cave{grid-template-columns:90px minmax(0,1.3fr) minmax(0,1fr) 26px}
-        .wf-row.prop{grid-template-columns:110px 92px minmax(0,1fr) minmax(0,1fr) 26px}
+        .wf-row.prop{grid-template-columns:minmax(0,1fr) 96px minmax(0,1fr) minmax(0,1.1fr) 26px}
+        .wf-row .k-select{min-width:0!important;max-width:none!important;width:100%}
+        .wf-row .k-input{min-width:0;width:100%;box-sizing:border-box}
         .wf-row .x{border:0;background:transparent;color:var(--faint);cursor:var(--cur-pointer,pointer);font-size:14px}
         .wf-row .x:hover{color:#a63a45}
         .wf-head{font-size:10.5px;color:var(--faint);letter-spacing:.04em}
-        @media (max-width:620px){.wf-row.cave,.wf-row.prop{grid-template-columns:1fr 1fr}.wf-row .x{justify-self:end}}
+        @media (max-width:620px){.wf-row.cave,.wf-row.prop{grid-template-columns:1fr 1fr;padding-bottom:8px;border-bottom:1px dashed var(--line)}.wf-row.wf-head{display:none}.wf-row .x{grid-column:1/-1;justify-self:end;font-size:12px}.wf-row .x::after{content:' 이 줄 삭제'}}
+        .wf-warn{font-size:12px;line-height:1.6;color:#a63a45;background:rgba(166,58,69,.08);border:1px solid rgba(166,58,69,.25);border-radius:8px;padding:8px 12px}
       `}</style>
       <div className="wf-grid">
         <div style={{ display: 'grid', gap: 10, minWidth: 0 }}>
@@ -304,6 +307,12 @@ export function WidgetForm({ initial, onSave, onCancel }: {
               <textarea className="k-textarea" placeholder="설명 — AI가 이 컴포넌트를 언제 호출하는지" value={description}
                 onChange={e => setDescription(e.target.value)} style={{ minHeight: 60, resize: 'vertical' }} />
               <div style={label}>JSX 코드</div>
+              {/(Props 정의|이름 \(camelCase\)|JSX 코드 \/ 미리보기|안전한 JSX 입니다|예시값 \(AI 전달\))/.test(jsx) && (
+                <div className="wf-warn">
+                  티팟 <b>편집 화면 전체</b>가 들어온 것 같아요 — 안내 문구가 섞여 있으면 코드가 실행되지 않아요.<br />
+                  티팟 편집기의 <b>코드 칸 안을 클릭한 뒤 Ctrl+A → Ctrl+C</b>로 코드만 복사해 다시 붙여 주세요.
+                </div>
+              )}
               <textarea className="k-textarea" value={jsx} onChange={e => setJsx(e.target.value)} spellCheck={false}
                 placeholder={'function StatusBoard({ title = "전투", hp = 45, maxHp = 100 }) {\n  return <div>{title} {hp}/{maxHp}</div>;\n}'} style={codeArea} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
