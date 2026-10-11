@@ -389,14 +389,18 @@ export default function RelDetailPage() {
 
   // 삭제된 캐릭터를 가리키는 멤버 자동 정리 — 카드도 안 뜨고 [＋ 멤버 추가]도
   // 안 나오는 유령 슬롯이 남지 않게 (캐릭터 삭제 기능 도입에 따른 정합성 보정)
+  // 관리자가 볼 때만 정리한다 (포크 수정) — 방문자·회원에겐 나만보기 캐릭터가 서버에서 아예 안 와서
+  // 「삭제된 캐릭터」로 오인해 멤버를 빼고 저장하려 들었다(비로그인은 거부→되돌림→재시도 반복으로 화면이 튐,
+  // 편집 권한 있는 회원은 실제로 멤버가 빠질 위험). 관리자는 모든 캐릭터가 보이니 진짜 삭제만 걸린다
   useEffect(() => {
+    if (!isAdmin) return;
     if (!loaded || !charsLoaded || !rel) return;
     const alive = rel.members.filter(m => chars.some(c => c.id === m.charId));
     if (alive.length !== rel.members.length) {
       setRels(rels.map(r => (r.id === rel.id ? { ...r, members: alive } : r)));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loaded, charsLoaded, rel?.id, rel?.members.length, chars.length]);
+  }, [isAdmin, loaded, charsLoaded, rel?.id, rel?.members.length, chars.length]);
 
   const isDuo = rel ? (rel.kind ? rel.kind === 'pair' : rel.members.length === 2) : false;
   const au = rel?.aus.find(a => a.id === auId) ?? rel?.aus[0];
