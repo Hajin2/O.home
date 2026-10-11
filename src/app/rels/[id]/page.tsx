@@ -4,6 +4,7 @@
 // 관리자: 멤버 추가(내/상대 캐릭터) · 타임라인 항목 추가 · 질문 추가
 import { TagList } from '@/components/ui/TagList';
 import { RelDdayChips } from '@/components/rels/RelDday';
+import { RelNav } from '@/components/rels/RelNav';
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
@@ -1678,6 +1679,9 @@ export default function RelDetailPage() {
           onClose={() => setFaceEdit(null)}
           onApply={c => saveFaceCrop(faceEdit.charId, c)} />
       )}
+
+      {/* 떠 있는 이동 버튼 — 맨 위로 · 이전/다음 자관 · 목록 (포크) */}
+      <RelNav rels={rels} cur={rel} />
 
       {/* 삭제 확인 — DOM 마지막에 렌더해 다른 모달(AU 관리 등) 위에 뜨게 */}
       {del.element}
