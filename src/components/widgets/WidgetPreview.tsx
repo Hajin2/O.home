@@ -21,10 +21,19 @@ const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt
 const jsStr = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
 /** 상자 안 높이를 바깥에 알려 주는 작은 스크립트 — 접고 펴는 위젯도 높이가 따라간다 */
-const reporter = (token: string) => `<script>(function(){var t=${jsStr(token)};function s(){var h=Math.ceil(Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0));parent.postMessage({__wp:t,h:h},'*');}
-try{new ResizeObserver(s).observe(document.documentElement);}catch(e){}window.addEventListener('load',s);document.addEventListener('toggle',function(){setTimeout(s,0);},true);setInterval(s,800);s();})();</script>`;
+const reporter = (token: string) => `<script>(function(){var t=${jsStr(token)},last=-1;
+function s(){var b=document.body;if(!b)return;
+  // 상자(뷰포트) 높이가 아니라 내용 높이를 잰다 — documentElement.scrollHeight는 상자 높이보다 작아지지 않아서
+  // 한 번 커지면 접어도 줄지 않았다. body는 높이가 auto라 내용만큼만 잡힌다
+  var h=Math.ceil(Math.max(b.scrollHeight,b.getBoundingClientRect().height));
+  if(h!==last){last=h;parent.postMessage({__wp:t,h:h},'*');}}
+try{new ResizeObserver(s).observe(document.body);}catch(e){}
+try{new MutationObserver(s).observe(document.body,{subtree:true,childList:true,attributes:true,characterData:true});}catch(e){}
+window.addEventListener('load',s);document.addEventListener('toggle',function(){setTimeout(s,0);setTimeout(s,400);},true);
+document.addEventListener('animationend',s,true);document.addEventListener('transitionend',s,true);
+setInterval(s,1000);s();})();</script>`;
 
-const BASE_CSS = `html,body{margin:0;padding:0;background:transparent}
+const BASE_CSS = `html,body{margin:0;padding:0;background:transparent;height:auto;min-height:0}
 body{padding:14px;box-sizing:border-box;font-family:Pretendard,-apple-system,BlinkMacSystemFont,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes fadeInDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
@@ -125,14 +134,17 @@ function teapotDoc(w: Widget, token: string) {
 }
 
 export function widgetDoc(w: Widget, token: string): string {
-  if (w.platform === 'teapot') return teapotDoc(w, token);
-  if (w.platform === 'caveduck') return caveDoc(w, token);
-  return htmlDoc(w, token);
+  const doc = w.platform === 'teapot' ? teapotDoc(w, token) : w.platform === 'caveduck' ? caveDoc(w, token) : htmlDoc(w, token);
+  // 높이를 내용에 맞추는 동안엔 상자 안 스크롤바를 숨긴다 (반올림 1px로 스크롤바가 깜빡이지 않게).
+  // 높이를 고정했으면 넘치는 만큼 상자 안에서 스크롤
+  return w.previewHeight ? doc : doc.replace('</style>', 'html{overflow:hidden}</style>');
 }
 
 /** 작동 예시 상자. bg: 상자 바탕(채팅창 느낌) — 'light' | 'dark' */
-export function WidgetPreview({ widget, bg = 'light', maxHeight, minHeight = 120 }: {
+export function WidgetPreview({ widget, bg = 'light', maxHeight, minHeight = 120, width, bare }: {
   widget: Widget; bg?: 'light' | 'dark'; maxHeight?: number; minHeight?: number;
+  width?: number;      // 상자 폭 고정 (예: 휴대폰 폭 390) — 없으면 꽉 채움
+  bare?: boolean;      // 바탕·테두리 없이 (상세 화면 무대처럼 바깥에서 꾸밀 때)
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
   const token = useMemo(() => Math.random().toString(36).slice(2), []);
@@ -155,12 +167,13 @@ export function WidgetPreview({ widget, bg = 'light', maxHeight, minHeight = 120
 
   return (
     <div style={{
-      borderRadius: 12, overflow: 'auto', maxHeight,
-      background: bg === 'dark' ? '#1d2026' : '#eef0f3',
-      border: '1px solid var(--line)',
+      overflow: 'auto', maxHeight, width: width ?? '100%', maxWidth: '100%', margin: width ? '0 auto' : undefined,
+      ...(bare ? {} : {
+        borderRadius: 12, background: bg === 'dark' ? '#1d2026' : '#eef0f3', border: '1px solid var(--line)',
+      }),
     }}>
       <iframe ref={frame} src={url} title={`${widget.title} 작동 예시`} sandbox="allow-scripts"
-        style={{ display: 'block', width: '100%', height: h, border: 0, background: 'transparent' }} />
+        style={{ display: 'block', width: '100%', height: h, border: 0, background: 'transparent', transition: 'height .25s ease' }} />
     </div>
   );
 }
