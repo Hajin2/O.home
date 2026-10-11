@@ -13,6 +13,7 @@ export const FEATURES: { href: string; label: string }[] = [
   { href: '/chars', label: '캐릭터' },
   { href: '/rels', label: '자관' },
   { href: '/worlds', label: '세계관' },
+  { href: '/widgets', label: '위젯' },
   { href: '/rp', label: '역극' },
   { href: '/board', label: '리스트' },
   { href: '/gallery', label: '갤러리' },

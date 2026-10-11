@@ -260,3 +260,33 @@
 
 충돌 시: 위 줄들만 다시 얹기 (`mergeOrder` import 줄은 원작 그대로 둠).
 
+## 19. 위젯 공유 (`/widgets`)
+
+AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **작동 예시**와 함께 소개하는 페이지. 가져가기는 각 플랫폼의 **공유 링크**로.
+
+**등록 방식은 위젯마다 선택** (폼 맨 위, 새로 만들 땐 「간단 등록」이 기본)
+- **간단 등록**: 이름·소개·공유 링크 + 대표 이미지(스크린샷·GIF)만. 위젯 코드를 다시 붙여 넣을 필요 없음. 상세에는 이미지를 자르지 않고 크게, 목록에는 16:9로.
+- **작동 예시까지**: 코드를 붙여 넣어 방문자가 직접 눌러 볼 수 있게 (아래 설명).
+(예전 데이터처럼 방식이 안 적힌 위젯은 「작동 예시까지」로 취급. 코드가 비어 있으면 작동 예시 상자는 안 나옴)
+
+**DB**: Supabase SQL Editor에 `supabase/widgets.sql` 전체를 붙여넣고 Run (여러 번 실행해도 안전). 읽기는 공개범위대로, 등록은 관리자만.
+**메뉴**: 환경설정 → 메뉴 관리에서 「위젯」을 원하는 곳에 추가해야 상단 메뉴에 보임.
+
+- **작동 예시**: 사이트와 분리된 상자(iframe, `sandbox="allow-scripts"`) 안에서 실행 — 위젯의 `<style>`·스크립트가 사이트에 새지 않음.
+  - 케이브덕: 위젯 HTML의 `{{상태값}}`에 **예시 값**을 채워 그림 (`{{user}}`·`{{char}}`는 폼에서 이름 지정, 기본 「유저」·「캐릭터」). 예시가 없으면 상태값 이름이 그대로.
+  - 티팟: 티팟과 같은 방식 — unpkg에서 React 18 + Babel을 상자 안에 불러와 JSX를 변환·실행, **Props 표의 예시값**을 넣어 그림. 훅은 import 없이(`useState`…), `sendToChat`·`sendToReroll`은 알림만, 3D(ThreeCanvas)는 안내 문구로 대신.
+- **등록 폼**: 케이브덕은 편집 화면을 통째로 복사해 붙이면 상태값·지시사항·HTML을 자동으로 나눠 채움(복사본에 콘텐츠가 두 번 붙어 와도 하나로). 티팟은 「코드에서 Props 불러오기」로 함수 시그니처의 기본값에서 이름·타입·예시값을 채움. 오른쪽에 미리보기가 실시간으로.
+- **코드·상태값/Props 공개**: 위젯마다 「방문자에게도 보여 주기」 체크 (관리자는 항상 보임). 코드 복사 버튼.
+- **목록**: 플랫폼 탭 · 태그 · 검색 · 관리자 ORDER(놓을 때 한 번 저장, 탭으로 걸러 봐도 다른 위젯 자리 유지). 썸네일은 올린 이미지 → 없으면 케이브덕은 작동 예시를 작게, 티팟은 컴포넌트 이름.
+
+**새 파일 (충돌 없음)**: `lib/widgetStore.ts`, `components/widgets/WidgetPreview.tsx`, `components/widgets/WidgetForm.tsx`, `app/widgets/page.tsx`, `app/widgets/new/page.tsx`, `app/widgets/[id]/page.tsx`, `app/widgets/[id]/edit/page.tsx`, `supabase/widgets.sql`
+
+**기존 파일 수정 (각 1줄)** — 세계관 때와 같은 자리
+| 파일 | 바꾼 내용 |
+|---|---|
+| `lib/backend/types.ts` | `COLLECTION_OF`에 `'ohome.widgets.v1': 'widgets'` (백업·이전에 자동 포함) |
+| `lib/visFloor.ts` | `AREA`에 `widgets: { href: '/widgets' }` |
+| `lib/menu.ts` | `FEATURES`에 `{ href: '/widgets', label: '위젯' }` |
+
+참고: 위젯의 태그는 위젯 목록 안에서만 걸러짐 (태그 관리·태그 모아보기·전체 검색에는 아직 안 들어감).
+
