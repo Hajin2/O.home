@@ -247,3 +247,16 @@
 |---|---|
 | `app/globals.css` | **맨 끝**에 `.rel-card .nm b .pill{display:inline-block; …}` 한 줄(+주석) — 뱃지만 원래 알약 모양으로. 원작 줄은 그대로 |
 
+## 18. 캐릭터 목록 — 세계관 탭
+
+캐릭터 목록 위에 「전체 · 세계관A · 세계관B · … · 미지정」 탭. 캐릭터의 「소속 세계관」(worldId)으로 나눔 — 따로 분류 작업 필요 없음.
+탭 순서 = 세계관 목록 순서(ORDER), 캐릭터가 있는 세계관만 탭으로, 미지정은 해당 캐릭터가 있을 때만. 고른 탭은 주소 `?world=`에 남음. 처음엔 「전체」.
+탭을 바꾸면 태그 선택은 풀리고, 태그 칩은 고른 탭의 캐릭터 태그만 보여 줌. 세계관이 하나도 안 쓰였으면 탭 줄 자체가 안 보임(예전 화면 그대로).
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `components/chars/WorldTabs.tsx` (새 파일) | 탭 훅 `useWorldTabs` + 탭 모양(밑줄 탭, 색은 페이지 제목 색 변수) + `mergeInPlace`(걸러 본 상태에서 정렬해도 다른 캐릭터 사이 자리는 그대로) |
+| `app/chars/page.tsx` | import 1줄, `seeable`·`world` 두 줄 + `visible` 거르기에 `.filter(world.match)`, 태그칩 위에 `{world.element}`, 태그 개수는 고른 탭 기준, 편집모드 정렬 저장을 `mergeOrder` → `mergeInPlace`로 |
+
+충돌 시: 위 줄들만 다시 얹기 (`mergeOrder` import 줄은 원작 그대로 둠).
+

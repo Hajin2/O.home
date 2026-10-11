@@ -13,6 +13,7 @@ import { TagFilter } from '@/components/ui/TagFilter';
 import { TagList } from '@/components/ui/TagList';
 import { tagCounts, matchTags, tagMatches, useTagFilter } from '@/lib/tagUtil';
 import { CroppedBlobImg } from '@/components/ui/CropEditor';
+import { useWorldTabs, mergeInPlace } from '@/components/chars/WorldTabs';
 
 import { useToast } from '@/components/ui/Toast';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
@@ -49,14 +50,17 @@ function CharsInner() {
       .catch(() => { /* 무시 — 다음 세션에 다시 */ });
   }, [isAdmin, charsAll]);
 
-  const visible = chars
-    .filter(c => c.own)
-    .filter(c => isAdmin || c.visibility === 'public')
+  // 세계관 탭 (포크) — 볼 수 있는 캐릭터 기준으로 탭을 만들고, 탭을 바꾸면 태그 선택은 푼다
+  const seeable = chars.filter(c => c.own).filter(c => isAdmin || c.visibility === 'public');
+  const world = useWorldTabs(seeable, clearTags);
+  const visible = seeable
+    .filter(world.match)
     .filter(c => matchTags(c, tagSel, tagMode))
     .filter(c => !q || c.name.toLowerCase().includes(q.toLowerCase()) || c.sub.includes(q) || tagMatches(c, q));
 
   // 편집모드 카드 드래그 정렬 (v1.9)
-  const sort = useCardSort(visible, next => setChars(mergeOrder(chars, next)), editOn && isAdmin);
+  // 걸러 본 상태에서 정렬해도 다른 캐릭터 사이의 자리는 그대로 (포크 — mergeInPlace)
+  const sort = useCardSort(visible, next => setChars(mergeInPlace(chars, next)), editOn && isAdmin);
 
   return (
     <section className="page">
@@ -68,7 +72,8 @@ function CharsInner() {
           {isAdmin && <button className="btn btn-dark" onClick={() => router.push('/chars/new' + secQuery('chars', sec.id))}>＋ ADD CHARACTER</button>}
         </div>
       </div>
-      <TagFilter counts={tagCounts(chars.filter(c => c.own && (isAdmin || c.visibility === 'public')))}
+      {world.element}
+      <TagFilter counts={tagCounts(seeable.filter(world.match))}
         selected={tagSel} onToggle={toggleTag} onClear={clearTags} mode={tagMode} onToggleMode={toggleMode} />
       <div className="g5 chars-grid">
         {visible.map((c, i) => {
