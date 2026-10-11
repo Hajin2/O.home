@@ -20,6 +20,7 @@ import { parseTags } from '@/lib/tagUtil';
 import { fileDrop } from '@/lib/dnd';
 import { useToast } from '@/components/ui/Toast';
 import { WidgetPreview, teapotName } from './WidgetPreview';
+import { explainDbError } from '@/lib/dbError';
 
 const codeArea: React.CSSProperties = {
   width: '100%', minHeight: 260, height: 320, resize: 'vertical', boxSizing: 'border-box',
@@ -163,9 +164,21 @@ export function WidgetForm({ initial, onSave, onCancel }: {
     if (!title.trim()) { toast('위젯 이름을 입력해 주세요'); return; }
     if (live && platform === 'teapot' && jsx.trim() && !teapotName({ componentName, jsx })) { toast('컴포넌트 이름을 찾지 못했어요 — 컴포넌트 이름 칸을 채워 주세요'); return; }
     setBusy(true);
+    let step = '이미지 올리기';
     try {
       const imgId = file ? await putBlob(file) : ref;
+      step = '저장';
       await onSave(build(imgId));
+    } catch (e) {
+      // 서버 오류는 Error가 아닌 객체로 오기도 한다 — 메시지를 꺼내 알려 준다 (예전엔 조용히 삼켜 버튼이 먹통처럼 보였다)
+      const msg = e instanceof Error ? e.message
+        : e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : String(e);
+      const why = explainDbError(msg);
+      const noTable = /widgets/.test(msg) && /(does not exist|relation|schema cache|pgrst205|could not find the table)/i.test(msg);
+      toast(noTable
+        ? '저장하지 못했어요 — Supabase에 위젯 표가 아직 없어요. SQL Editor에서 widgets.sql을 실행해 주세요'
+        : `${step}에 실패했어요 — ${why || msg || '다시 시도해 주세요'}`);
+      console.error('[ohome] 위젯 저장 실패', e);
     } finally { setBusy(false); }
   };
 
@@ -365,7 +378,7 @@ export function WidgetForm({ initial, onSave, onCancel }: {
 
       <div className="form-actions" style={{ marginTop: 18 }}>
         <button className="btn btn-ghost" onClick={onCancel}>CANCEL</button>
-        <button className="btn btn-dark" onClick={submit} disabled={busy}>{initial ? 'SAVE' : 'ADD'}</button>
+        <button className="btn btn-dark" onClick={submit} disabled={busy}>{busy ? '저장 중…' : initial ? 'SAVE' : 'ADD'}</button>
       </div>
 
       <Modal open={pasteOpen} title="케이브덕 편집 화면 붙여넣기" desc="케이브덕 위젯 편집 화면을 전체 선택(Ctrl+A)해 복사한 뒤 여기에 붙여 넣으면, 상태값·지시사항·위젯 콘텐츠를 나눠서 채워요."

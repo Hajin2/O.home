@@ -290,3 +290,11 @@ AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **�
 
 참고: 위젯의 태그는 위젯 목록 안에서만 걸러짐 (태그 관리·태그 모아보기·전체 검색에는 아직 안 들어감).
 
+## 20. 위젯·세계관 표에 `editor_ids` 칸 추가 (저장이 400으로 거부되던 문제)
+
+원작 업데이트로 저장 시 `editor_ids`(편집 권한 목록) 칸을 항상 함께 보내는데, `widgets.sql`·`worlds.sql`이 예전 양식이라 그 칸이 없어 저장이 거부됐음 (위젯 ADD가 먹통).
+- `supabase/widgets.sql`, `supabase/worlds.sql`에 `alter table … add column if not exists editor_ids …` 추가 (이미 만든 표에도 다시 실행하면 칸만 붙음)
+- `components/widgets/WidgetForm.tsx`: 저장 실패를 알림으로 표시, 저장 중 표시
+
+**앞으로 새 표를 만들 때**: 원작 `lib/schemaSql.ts`의 표 양식(특히 `editor_ids` 칸)을 따라야 함.
+

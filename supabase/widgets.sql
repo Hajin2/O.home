@@ -11,6 +11,9 @@ create table if not exists public.widgets (
 );
 alter table public.widgets enable row level security;
 create index if not exists widgets_sort_idx on public.widgets (sort);
+-- 편집 권한 칸 — 원작 업데이트로 저장할 때 항상 함께 보낸다 (없으면 저장이 400으로 거부됨)
+alter table public.widgets add column if not exists editor_ids text[] not null default '{}'::text[];
+notify pgrst, 'reload schema';
 
 drop policy if exists "read" on public.widgets;
 create policy "read" on public.widgets for select using (
