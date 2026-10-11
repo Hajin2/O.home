@@ -239,3 +239,11 @@
 
 충돌 시: 자관은 `pairSlots[0]`/`pairSlots[1]` 카드 자리 앞에 `charsLoaded && pairSlots[i] && !charOf(...) ? <LockedCard />` 조건을 다시 얹기. 로그는 권한 없음 → `router.replace('/')` 줄을 다시 빼고 잠금 화면 블록을 다시 얹기.
 
+## 17. 자관 목록 — 「멤버」 뱃지가 카드 폭 전체 막대로 보이던 문제
+
+원작 CSS `.rel-card .nm span`(이름 아래 설명 줄용: `display:block` + 오른쪽 여백 44px)이 이름 옆 「멤버」 뱃지(`<span class="pill">`)에도 걸려, 뱃지가 카드 폭 전체로 늘어났음 (원작에 있던 문제).
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `app/globals.css` | **맨 끝**에 `.rel-card .nm b .pill{display:inline-block; …}` 한 줄(+주석) — 뱃지만 원래 알약 모양으로. 원작 줄은 그대로 |
+

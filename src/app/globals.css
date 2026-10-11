@@ -1814,3 +1814,7 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 /* 모달 뒤 흐림 끄기 (포크 수정) — 모달 안에서 글자를 치거나 스크롤할 때마다 뒤 화면 전체를 다시
    흐리게 계산해 크게 버벅였다. 어둡게 덮는 건 그대로. 원작 줄은 두고 맨 끝에서 덮어쓴다 (충돌 방지) */
 .modal-ov{-webkit-backdrop-filter:none;backdrop-filter:none}
+
+/* 자관 목록 카드의 「멤버」 뱃지 (포크 수정) — 원작의 `.rel-card .nm span`(설명 줄용: 한 줄 전체·오른쪽 여백)에
+   뱃지 span까지 걸려 카드 폭 전체 막대가 되던 것을 이름 옆 작은 알약으로 되돌린다 */
+.rel-card .nm b .pill{display:inline-block;vertical-align:middle;padding:2px 8px;margin-top:-2px;font-family:var(--sans,inherit);letter-spacing:.04em;font-weight:500}
