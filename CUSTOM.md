@@ -340,3 +340,10 @@ AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **�
 | `app/settings/page.tsx` | import 1줄 + 이미지 저장 방지 블록 바로 뒤 `<TextProtectOptions />` 1줄(+주석) |
 | `app/trpg/[id]/page.tsx` | import 1줄, `const txtProtect = useTextProtectActive();` 1줄, 로그 주입(inject) 끝에 `+ (txtProtect ? TEXT_PROTECT_IFRAME : '')` |
 
+## 26. 세계관 탭 넘김 버튼 · 태그 줄 접기
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `components/chars/WorldTabs.tsx` (새 파일) | 탭 줄을 `TabScroller`로 — 넘칠 때만 탭 줄 오른쪽 끝에 작은 ‹ › (끝에 닿은 쪽은 흐리게), 넘치는 쪽 끝 탭은 살짝 흐려지게(mask), 탭 위에서 마우스 휠만 굴려도 옆으로(예전엔 Shift+휠) |
+| `components/ui/TagFilter.tsx` (새 파일) | 태그 칩 줄을 기본 **한 줄**로 접고 오른쪽 끝 「펼치기 ▾」 / 펼치면 맨 끝 「접기 ▴」. 접혀 있어도 고른 태그는 앞으로 당겨 보임. 펼침 여부는 보는 사람 브라우저에 기억(모든 목록 공통). 예전 「+N 더 보기」(24개 기준) 대체. TRPG 로그 목록 오른쪽 세로 태그 칸은 원작 방식 그대로 |
+
