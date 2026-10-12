@@ -83,10 +83,32 @@ export default function RpPage() {
   const speakChars = useMemo(() => {
     if (rel) {
       const members = rel.members.map(m => rpChars.find(c => c.id === m.charId)).filter(Boolean) as Character[];
-      return isAdmin ? members : members.filter(c => !!charGrant(c, user?.id));
+      // 자관 역극방에서는 참여자 누구나 그 자관 멤버 캐릭터 중에서 골라 말한다 (포크, 사용자 확정 —
+      // 지인 몇 명이 쓰는 홈이라 캐릭터 주인을 가를 필요가 없다. 말풍선 좌우는 친 사람 기준이라 섞여도 구분된다)
+      return members;
     }
-    return isAdmin ? rpChars.filter(c => c.own) : rpChars.filter(c => !!charGrant(c, user?.id));
+    return isAdmin ? rpChars.filter(c => c.own) : rpChars.filter(c => !!charGrant(c, user?.id) || (!!user && c.authorId === user.id));
   }, [rel, rpChars, isAdmin, user?.id]);
+
+  /* 말풍선 좌우 (포크 — 「한쪽으로만 나와 구별이 안 된다」 제보, 사용자 확정).
+     **누가 쳤는지로 정한다**: 내가 친 말은 오른쪽, 다른 사람이 친 말은 왼쪽.
+     캐릭터의 주인·권한으로 정하면, 한 사람이 캐릭터를 몰아서 등록했을 때 판정이 무너진다.
+     이 방에서 아직 한 사람만 말했다면(혼자 두 캐릭터를 굴리는 경우) 캐릭터 순서로 번갈아 나눈다 —
+     자관 페어면 자관 화면의 좌우 자리 그대로, 그 밖에는 자관 멤버 순서 → 먼저 말한 순서. */
+  const soloSides = useMemo(() => {
+    if (!sel) return null;
+    const ms = messagesFor(msgRows, sel.id, sel.messages).filter(m => m.kind === 'char' && m.charId);
+    if (new Set(ms.map(m => m.authorId)).size > 1) return null;   // 여러 사람이 말했으면 친 사람 기준
+    const order: string[] = [];
+    if (rel) {
+      const ids = rel.members.map(m => m.charId);
+      order.push(...(rel.members.length === 2 && rel.pairRight
+        ? [ids.find(x => x !== rel.pairRight) ?? ids[0], rel.pairRight]
+        : ids));
+    }
+    for (const m of ms) if (!order.includes(m.charId!)) order.push(m.charId!);
+    return new Map(order.map((cid, i) => [cid, i % 2 === 1]));
+  }, [sel, msgRows, rel]);
 
   const [speaker, setSpeaker] = useState<string>('');   // charId | 'desc' (플레이어 발화는 없앴다, v2.0)
   const [pickOpen, setPickOpen] = useState(false);
@@ -415,9 +437,8 @@ ${rows}
                   // 아닌 캐릭터가 왼쪽. 관리자에게는 자캐(own)가 자기 캐릭터다.
                   // 그래서 같은 방이라도 사람마다 좌우가 반대로 보인다(각자 자기 쪽이 오른쪽).
                   // 삭제된 캐릭터는 발화 당시 기록(charOwn)으로 판단.
-                  const rightSide = ch
-                    ? (!!charGrant(ch, user.id) || (!!ch.own && isAdmin))
-                    : (!!m.charOwn && isAdmin);
+                  // 친 사람 기준 — 혼자만 말한 방이면 캐릭터 순서로 (soloSides 참고, 포크)
+                  const rightSide = soloSides ? !!soloSides.get(m.charId ?? '') : m.authorId === user.id;
                   return (
                     <div key={m.id} className={`msg ${rightSide ? 'me' : ''}`} style={{ ['--cc' as string]: hexRgb(ch?.color) }}>
                       <Face ch={ch} className="face" />

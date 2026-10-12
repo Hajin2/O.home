@@ -64,6 +64,8 @@ export interface Character {
   // 회원-캐릭터 연결 (3차, v1.9) — 상대 캐릭터에 회원 권한 부여:
   // play = 역극에서 이 캐릭터로 발화 가능, edit = 캐릭터 편집까지 가능 (play 포함)
   grants?: CharGrant[];
+  /** 만든 회원 (포크 — 세계관 편집 회원의 캐릭터 추가). 만든 사람은 수정·삭제할 수 있다 */
+  authorId?: string;
   // AU별 캐릭터 프로필 (v1.9) — 키 `${relId}:${auId}`. 자관에 AU를 추가하면 멤버 캐릭터
   // 상세 우상단에 AU 리스트가 뜨고, 선택 시 프로필 전체가 이 값으로 전환.
   // 편집은 /chars/[id]/edit?au= — AU 전용 편집 페이지에서 아예 새 프로필처럼 작성 (사용자 확정)
@@ -359,6 +361,10 @@ export interface RelDday { id: string; title: string; date: string; plusOne?: bo
 
 export interface Relation {
   id: string;
+  /** 만든 회원 (포크) — 만든 사람은 수정·삭제할 수 있다 */
+  authorId?: string;
+  /** 서버가 확인하는 편집 회원 (포크) — 멤버 캐릭터를 편집할 수 있는 회원. 저장할 때 자동으로 계산 */
+  editorUids?: string[];
   /** 페이지 주소 별명 (v2.0 사용자 요청) — /rels/{별명}. 나중에 수정 화면에서 바꿀 수 있다.
    *  참조(AU 프로필 키·로그 연동 등)는 언제나 id로 저장되므로 바꿔도 끊어지지 않는다. */
   slug?: string;

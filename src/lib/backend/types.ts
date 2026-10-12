@@ -184,12 +184,16 @@ export function metaOf(item: ListItem, uid: string | null, floor = 'public') {
  * (v2.0 사용자 발견 — 댓글 문제와 같은 뿌리).
  */
 export function editorIdsOf(item: ListItem): string[] {
+  // 자관처럼 grants가 없는 항목은 화면이 계산해 둔 평평한 목록(editorUids)을 쓴다 (포크)
+  const flat = Array.isArray(item.editorUids)
+    ? (item.editorUids as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
   const grants = item.grants;
-  if (!Array.isArray(grants)) return [];
-  return grants
+  if (!Array.isArray(grants)) return flat;
+  return [...flat, ...grants
     .filter((g): g is { userId: string; level: string } =>
       !!g && typeof g === 'object'
       && typeof (g as { userId?: unknown }).userId === 'string'
       && (g as { level?: unknown }).level === 'edit')
-    .map(g => g.userId);
+    .map(g => g.userId)];
 }

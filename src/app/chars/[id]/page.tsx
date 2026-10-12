@@ -9,6 +9,7 @@ import { CharWorld } from '@/components/worlds/CharWorld';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { canEditChar, canDeleteChar } from '@/lib/charAccess';
 import { useLocalList } from '@/lib/postStore';
 import { Character, CHAR_SEED, charGrant, charWithAu, chipBorder, Relation, REL_SEED , findByKey} from '@/lib/charStore';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -111,7 +112,7 @@ function CharDetailInner() {
       </section>
     );
   }
-  if (ch.visibility === 'private' && !isAdmin) {
+  if (ch.visibility === 'private' && !isAdmin && !(user && ch.authorId === user.id)) {
     return (
       <section className="page">
         <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>비공개 캐릭터입니다</p></div>
@@ -146,10 +147,10 @@ function CharDetailInner() {
         <div className="head-actions">
           {/* 관리자 또는 「편집까지」 권한 회원 (3차 회원-캐릭터 연결, v1.9)
               — AU 선택 상태의 EDIT은 그 AU 전용 프로필 편집으로 진입 */}
-          {(isAdmin || charGrant(ch, user?.id) === 'edit') && (
+          {canEditChar(ch, user?.id, isAdmin) && (
             <button className="btn btn-dark" onClick={() => router.push(editHref)}>EDIT</button>
           )}
-          {isAdmin && <button className="btn btn-dark" onClick={() => setDelAsk(true)}>DELETE</button>}
+          {canDeleteChar(ch, user?.id, isAdmin) && <button className="btn btn-dark" onClick={() => setDelAsk(true)}>DELETE</button>}
         </div>
 
         <ConfirmModal open={delAsk} title="캐릭터를 삭제하시겠습니까?"
@@ -195,7 +196,7 @@ function CharDetailInner() {
           <p style={{ fontSize: 13, color: 'var(--faint)', marginBottom: 16 }}>
             이 AU의 「{ch.name}」이 아직 등록되지 않았습니다 — 등록하면 이 캐릭터의 AU 프로필로 연동됩니다
           </p>
-          {(isAdmin || charGrant(ch, user?.id) === 'edit') && (
+          {canEditChar(ch, user?.id, isAdmin) && (
             <button className="btn btn-dark" onClick={() => router.push(editHref)}>＋ AU 캐릭터 등록</button>
           )}
         </div>
@@ -207,7 +208,7 @@ function CharDetailInner() {
           {eff.tabs.map(t => (
             <button key={t.id} className={tab === t.id ? 'on' : ''} data-tip={t.title} onClick={() => pickTab(t.id)}>{t.icon}</button>
           ))}
-          {isAdmin && (
+          {canEditChar(ch, user?.id, isAdmin) && (
             <button data-tip="탭 추가 (편집모드)" style={{ borderStyle: 'dashed', fontSize: 13 }}
               onClick={() => router.push(editHref)}>＋</button>
           )}
@@ -226,7 +227,7 @@ function CharDetailInner() {
               onClick={() => { if (arts.length > 1) setArtIdx(i => (i + 1) % arts.length); }}
               /* 대표 아트 우클릭 → 이 화면에 보일 위치 조정 (관리자, v2.0 사용자 확정) */
               onContextMenu={e => {
-                if (!(isAdmin || charGrant(ch, user?.id) === 'edit') || cur !== 0) return;
+                if (!canEditChar(ch, user?.id, isAdmin) || cur !== 0) return;
                 e.preventDefault();
                 setArtCtx({ x: e.clientX, y: e.clientY, ref: arts[0] });
               }}>
