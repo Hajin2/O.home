@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { useTemplateChoices, useTemplates, type CharTemplate } from '@/lib/tplStore';
 import {
-  emptyOf, renderTpl,
+  emptyOf, renderTpl, valuesToText, parseValuesText,
   type BadgeValue, type TplField, type TplValue, type TplValues,
 } from '@/lib/tplRender';
 import { putBlob } from '@/lib/blobStore';
@@ -172,6 +172,49 @@ function FieldInput({ f, value, onChange }: { f: TplField; value: TplValue | und
   }
 }
 
+/* ---------- 서식 (굵게·기울임·취소선) ---------- */
+
+/** 지금 커서가 있는 입력칸의 선택 글을 기호로 감싼다 — 이미 감싸져 있으면 벗긴다.
+ *  React가 관리하는 칸이라 값을 직접 넣고 input 이벤트를 보내 onChange가 돌게 한다. */
+function wrapSelection(mark: string) {
+  const el = document.activeElement;
+  if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+  if (!el.closest('[data-tpl-editor]')) return;
+  const v = el.value;
+  const a = el.selectionStart ?? 0;
+  const b = el.selectionEnd ?? a;
+  const sel = v.slice(a, b);
+  const n = mark.length;
+  let next: string; let s0: number; let s1: number;
+  if (v.slice(a - n, a) === mark && v.slice(b, b + n) === mark) {
+    next = v.slice(0, a - n) + sel + v.slice(b + n); s0 = a - n; s1 = b - n;
+  } else if (sel.startsWith(mark) && sel.endsWith(mark) && sel.length >= n * 2) {
+    const inner = sel.slice(n, sel.length - n);
+    next = v.slice(0, a) + inner + v.slice(b); s0 = a; s1 = a + inner.length;
+  } else {
+    next = v.slice(0, a) + mark + sel + mark + v.slice(b); s0 = a + n; s1 = b + n;
+  }
+  const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, next);
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+  requestAnimationFrame(() => { el.focus(); el.setSelectionRange(s0, s1); });
+}
+
+function FmtBar() {
+  const btn = (mark: string, label: React.ReactNode, tip: string) => (
+    <button type="button" className="btn btn-ghost" style={{ ...small, minWidth: 30 }} data-tip={tip}
+      onMouseDown={e => { e.preventDefault(); wrapSelection(mark); }}>{label}</button>
+  );
+  return (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+      {btn('**', <b>B</b>, '굵게 (Ctrl+B)')}
+      {btn('*', <i>I</i>, '기울임 (Ctrl+I)')}
+      {btn('~~', <s>S</s>, '취소선')}
+      <span className="hint" style={{ margin: '0 0 0 4px' }}>글자를 선택하고 누르세요</span>
+    </div>
+  );
+}
+
 /* ---------- 양식 탭 편집 화면 ---------- */
 
 export function TplTabEditView({ tplId, values, startPage, onChange, onDelete, onBack }: {
@@ -185,6 +228,8 @@ export function TplTabEditView({ tplId, values, startPage, onChange, onDelete, o
   const { list, loaded } = useTemplates();
   const tpl = list.find(t => t.id === tplId);
   const [page, setPage] = useState(startPage);
+  const [bulk, setBulk] = useState<string | null>(null);   // 글로 한 번에 입력 — 열려 있으면 그 글
+  const [bulkMsg, setBulkMsg] = useState('');
 
   const head = (
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -207,13 +252,50 @@ export function TplTabEditView({ tplId, values, startPage, onChange, onDelete, o
   }
 
   const set = (key: string, v: TplValue) => onChange({ ...values, [key]: v }, tpl);
+  const applyBulk = () => {
+    if (bulk === null) return;
+    const { values: next, unknown } = parseValuesText(tpl, bulk, values);
+    onChange(next, tpl);
+    setBulkMsg(unknown.length
+      ? `적용했어요. 알아보지 못한 줄 ${unknown.length}개는 건너뛰었어요 — 「${unknown[0].slice(0, 30)}」${unknown.length > 1 ? ' 등' : ''}`
+      : '적용했어요');
+    setBulk(null);
+  };
   const p = Math.min(page, tpl.pages.length - 1);
   const fields = tpl.fields.filter(f => (f.page ?? 0) === p);
   const preview = sanitizeHtml(renderTpl(tpl.pages[p].html, values));
 
   return (
-    <div className="panel" style={{ padding: 24, display: 'grid', gap: 14 }}>
+    <div className="panel" data-tpl-editor style={{ padding: 24, display: 'grid', gap: 14 }}
+      onKeyDown={e => {
+        if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+        const k = e.key.toLowerCase();
+        if (k === 'b') { e.preventDefault(); wrapSelection('**'); }
+        else if (k === 'i') { e.preventDefault(); wrapSelection('*'); }
+      }}>
       {head}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <FmtBar />
+        <button type="button" className="btn btn-ghost" style={{ ...small, marginLeft: 'auto' }}
+          onClick={() => { setBulkMsg(''); setBulk(b => (b === null ? valuesToText(tpl, values) : null)); }}>
+          {bulk === null ? '글로 한 번에 입력' : '닫기'}
+        </button>
+      </div>
+      {bulkMsg && <p className="hint" style={{ margin: 0 }}>{bulkMsg}</p>}
+      {bulk !== null && (
+        <div style={{ ...box, gap: 10 }}>
+          <p className="hint" style={{ margin: 0 }}>
+            지금 내용이 글로 들어 있어요. 고치거나 통째로 바꿔 붙여 넣고 [적용]을 누르면 칸이 채워져요.
+            「칸 이름: 내용」 · 여러 줄 글은 다음 줄부터 · 목록은 「- 」로 시작 · 묶음은 「[이름]」으로 시작 · 뱃지 끝에 「(강조)」
+          </p>
+          <KTextarea value={bulk} onChange={e => setBulk(e.target.value)}
+            style={{ fontSize: 12.5, minHeight: 240, maxHeight: '60vh', overflow: 'auto', lineHeight: 1.6 }} />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn btn-ghost" onClick={() => setBulk(null)}>CANCEL</button>
+            <button className="btn btn-dark" onClick={applyBulk}>적용</button>
+          </div>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {tpl.pages.map((x, i) => (
           <button key={i} className={`btn ${i === p ? 'btn-dark' : 'btn-ghost'}`} style={{ fontSize: 12, padding: '4px 12px' }}

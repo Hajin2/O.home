@@ -9,6 +9,8 @@
 //   {{@n}} {{@i}}      목록 안 순번 — 01·02… / 1·2…
 //   {{key.count}}      목록·묶음의 개수
 //   {{key.strong}}     상태 뱃지가 「강조」인지 (섹션 조건으로)
+//
+// 입력한 글 안의 서식: **굵게** · *기울임* · ~~취소선~~ (그 밖의 HTML은 글자 그대로 보인다)
 // 새 파일로 따로 둔 이유: 원작/기존 홈 업데이트(Sync fork)와 충돌하지 않게.
 
 export type TplFieldType = 'text' | 'long' | 'list' | 'group' | 'badge' | 'image' | 'heading';
@@ -135,6 +137,15 @@ function esc(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/** 입력한 글 → 안전한 HTML. 먼저 전부 이스케이프한 뒤 서식 기호만 태그로 바꾼다 */
+export function fmtText(s: string): string {
+  return esc(s)
+    .replace(/\*\*(?=\S)([\s\S]*?\S)\*\*/g, '<b>$1</b>')
+    .replace(/~~(?=\S)([\s\S]*?\S)~~/g, '<s>$1</s>')
+    .replace(/(^|[^*])\*(?=[^\s*])([^*\n]*?[^\s*])\*(?!\*)/g, '$1<i>$2</i>')
+    .replace(/\r?\n/g, '<br>');
+}
+
 function lookup(stack: Ctx[], name: string): unknown {
   if (name === '.') return stack[stack.length - 1].v;
   if (name === '@n' || name === '@i') {
@@ -186,7 +197,7 @@ function run(nodes: Node[], stack: Ctx[]): string {
     if (n.t === 'text') out += n.s;
     else if (n.t === 'var') {
       const s = textOf(lookup(stack, n.name)).trim();
-      out += s ? esc(s).replace(/\r?\n/g, '<br>') : (n.filter === 'blank' ? BLANK : '');
+      out += s ? fmtText(s) : (n.filter === 'blank' ? BLANK : '');
     } else {
       const v = lookup(stack, n.name);
       const has = filled(v);
@@ -211,4 +222,130 @@ export function emptyOf(f: TplField): TplValue {
   if (f.type === 'group') return [];
   if (f.type === 'badge') return { text: '', strong: false };
   return '';
+}
+
+/* ---------- 글로 한 번에 입력 ---------- *
+ * 형식 (칸 이름은 양식의 label 그대로):
+ *   # 탭 제목 / ## 소제목     — 읽을 때는 무시 (묶음을 닫는 구분선 역할)
+ *   이름: 권이안              — 한 줄 글
+ *   능력 설명:                — 여러 줄 글은 다음 줄부터 이어서
+ *   부작용:                   — 목록은 「- 」로 시작하는 줄마다 한 항목
+ *   - 첫 항목
+ *   현재 상태: 불안정 (강조)  — 상태 뱃지, 끝에 (강조)를 붙이면 강조
+ *   [팀 내 평가]              — 묶음 하나 시작 (같은 이름을 또 쓰면 다음 묶음)
+ *   평가자: 한시언 팀장
+ */
+
+const STRONG = /\s*\(강조\)\s*$/;
+
+function scalarText(f: TplField, v: unknown): string[] {
+  if (f.type === 'list') {
+    const arr = Array.isArray(v) ? (v as unknown[]).map(x => String(x ?? '')).filter(x => x.trim()) : [];
+    return [`${f.label}:`, ...arr.map(x => `- ${x.replace(/\n/g, '\n  ')}`)];
+  }
+  if (f.type === 'badge') {
+    const b = (v && typeof v === 'object' ? v : { text: '', strong: false }) as BadgeValue;
+    return [`${f.label}: ${b.text ?? ''}${b.strong && b.text ? ' (강조)' : ''}`];
+  }
+  const s = typeof v === 'string' ? v : '';
+  if (f.type === 'long' || s.includes('\n')) return [`${f.label}:`, ...(s ? s.split('\n') : [])];
+  return [`${f.label}: ${s}`];
+}
+
+/** 지금 값 → 글 */
+export function valuesToText(code: Pick<TplCode, 'fields' | 'pages'>, values: TplValues): string {
+  const out: string[] = [];
+  code.pages.forEach((p, pi) => {
+    out.push(`# ${p.title || `탭 ${pi + 1}`}`);
+    for (const f of code.fields.filter(x => (x.page ?? 0) === pi)) {
+      if (f.type === 'heading') { out.push('', `## ${f.label}`); continue; }
+      if (f.type === 'image') continue;
+      const v = values[f.key];
+      if (f.type === 'group') {
+        const items = Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
+        if (!items.length) out.push(`[${f.label}]`, ...(f.sub ?? []).filter(s => s.type !== 'image').flatMap(s => scalarText(s, undefined)));
+        for (const it of items) {
+          out.push(`[${f.label}]`);
+          for (const s of f.sub ?? []) if (s.type !== 'image') out.push(...scalarText(s, it[s.key]));
+        }
+        out.push('');
+        continue;
+      }
+      out.push(...scalarText(f, v));
+    }
+    out.push('');
+  });
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+
+/** 글 → 값. 글에 없는 칸은 지금 값을 그대로 둔다(이미지 등). 알아보지 못한 줄 수를 함께 돌려준다 */
+export function parseValuesText(code: Pick<TplCode, 'fields'>, text: string, base: TplValues = {}): { values: TplValues; unknown: string[] } {
+  const top = code.fields.filter(f => f.type !== 'heading' && f.type !== 'image');
+  const byLabel = (list: TplField[], label: string) => list.find(f => f.label.trim() === label.trim());
+  const values: TplValues = { ...base };
+  // 글에 나온 칸만 덮어쓴다 — 처음 나올 때 비우고 채운다
+  const touched = new Set<string>();
+  const unknown: string[] = [];
+
+  let group: { f: TplField; item: Record<string, unknown> } | null = null;
+  let cur: { f: TplField; set: (v: unknown) => void; get: () => unknown } | null = null;
+
+  const startField = (f: TplField, rest: string, holder: Record<string, unknown>, isTop: boolean) => {
+    if (isTop && !touched.has(f.key)) { touched.add(f.key); holder[f.key] = emptyOf(f); }
+    const set = (v: unknown) => { holder[f.key] = v; };
+    const get = () => holder[f.key];
+    cur = { f, set, get };
+    if (f.type === 'badge') {
+      const strong = STRONG.test(rest);
+      set({ text: rest.replace(STRONG, '').trim(), strong });
+      cur = null;
+    } else if (f.type === 'list') {
+      set(rest.trim() ? [rest.trim()] : []);
+    } else set(rest.trim());
+  };
+
+  for (const raw of text.replace(/\r\n/g, '\n').split('\n')) {
+    const line = raw.replace(/\s+$/, '');
+    if (/^#{1,6}\s/.test(line)) { group = null; cur = null; continue; }
+    const g = /^\[(.+)\]$/.exec(line.trim());
+    if (g) {
+      const f = byLabel(top, g[1]);
+      if (f?.type === 'group') {
+        if (!touched.has(f.key)) { touched.add(f.key); values[f.key] = []; }
+        const item: Record<string, unknown> = Object.fromEntries((f.sub ?? []).map(s => [s.key, emptyOf(s)]));
+        (values[f.key] as Record<string, unknown>[]).push(item);
+        group = { f, item }; cur = null;
+        continue;
+      }
+    }
+    const m = /^([^:：\-·!•*][^:：]{0,40}?)\s*[:：]\s?(.*)$/.exec(line);
+    if (m) {
+      const sub = group ? byLabel(group.f.sub ?? [], m[1]) : undefined;
+      if (sub && group) { startField(sub, m[2], group.item, false); continue; }
+      const f = byLabel(top, m[1]);
+      if (f && f.type !== 'group') { group = null; startField(f, m[2], values as Record<string, unknown>, true); continue; }
+    }
+    if (!cur) { if (line.trim()) unknown.push(line.trim()); continue; }
+    const c = cur as { f: TplField; set: (v: unknown) => void; get: () => unknown };
+    if (c.f.type === 'list') {
+      const arr = [...((c.get() as string[]) ?? [])];
+      const b = /^\s*[-·!•*]\s+(.*)$/.exec(line);
+      if (b) arr.push(b[1]);
+      else if (line.trim() && arr.length) arr[arr.length - 1] += `\n${line.trim()}`;
+      else if (line.trim()) arr.push(line.trim());
+      c.set(arr);
+    } else {
+      const prev = String(c.get() ?? '');
+      c.set(prev ? `${prev}\n${line}` : line);
+    }
+  }
+  // 여러 줄 글 끝의 빈 줄 정리
+  const tidy = (v: unknown): unknown => (typeof v === 'string' ? v.replace(/\s+$/, '').replace(/^\n+/, '')
+    : Array.isArray(v) ? v.map(tidy) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, tidy(x)])) : v);
+  for (const k of touched) {
+    values[k] = tidy(values[k]) as TplValue;
+    // 칸을 하나도 안 채운 묶음은 버린다 (형식 안내용 빈 [묶음]을 그대로 둔 경우)
+    if (code.fields.find(f => f.key === k)?.type === 'group') values[k] = (values[k] as Record<string, unknown>[]).filter(filled);
+  }
+  return { values, unknown };
 }
