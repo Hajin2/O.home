@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocalList, newId } from '@/lib/postStore';
 import { Character, CHAR_SEED, type CharTab, type Visibility } from '@/lib/charStore';
 import { useSectionParam, secStamp, secQuery } from '@/lib/sectionStore';
-import { useEditableWorlds, canEditChar } from '@/lib/charAccess';
+import { useEditableWorlds, canEditChar, creatorGrants } from '@/lib/charAccess';
 import { useTemplateChoices, type CharTemplate } from '@/lib/tplStore';
 import { parseValuesText, renderTpl, filled, type TplValues } from '@/lib/tplRender';
 import { initialValues } from '@/components/chars/TplTabs';
@@ -128,7 +128,7 @@ function BulkInner() {
             id: newId(), name: p.name, sub: team, color: '#5d636d', themeMode: 'default',
             colors: [], colorTipMode: 'hex', specs: [], tabs: tabsFor(tpl, p.values), basicHtml: '',
             visibility, thumbClass: '', arts: [], own: true, worldId: wid || undefined,
-            authorId: user?.id, ...secStamp(sec.id),
+            authorId: user?.id, grants: creatorGrants(user?.id, isAdmin), ...secStamp(sec.id),
           };
           next.push(c);
         }

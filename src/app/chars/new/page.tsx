@@ -7,7 +7,7 @@ import { useLocalList } from '@/lib/postStore';
 import { Character, CHAR_SEED } from '@/lib/charStore';
 import { useSectionParam, secStamp, secQuery , useSectionTitle } from '@/lib/sectionStore';
 import { CharEditForm } from '@/components/chars/CharEditForm';
-import { useEditableWorlds } from '@/lib/charAccess';
+import { useEditableWorlds, creatorGrants } from '@/lib/charAccess';
 import { useToast } from '@/components/ui/Toast';
 import { PageTitle, EditableDesc } from '@/components/ui/PageText';
 
@@ -43,7 +43,7 @@ function CharNewInner() {
         worldChoices={isAdmin ? undefined : editable.worlds.map(w => w.id)}
         onSave={c => {
           if (!isAdmin && !editable.worlds.some(w => w.id === c.worldId)) { toast('소속 세계관을 골라 주세요'); return; }
-          setChars([...chars, { ...c, ...secStamp(sec.id), authorId: user?.id }]);
+          setChars([...chars, { ...c, ...secStamp(sec.id), authorId: user?.id, grants: c.grants ?? creatorGrants(user?.id, isAdmin) }]);
           toast('캐릭터가 등록되었습니다');
           router.push(`/chars/${c.id}`);
         }}

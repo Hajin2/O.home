@@ -361,6 +361,10 @@ export interface RelDday { id: string; title: string; date: string; plusOne?: bo
 
 export interface Relation {
   id: string;
+  /** 만든 회원 (포크) — 만든 사람은 수정·삭제할 수 있다 */
+  authorId?: string;
+  /** 서버가 확인하는 편집 회원 (포크) — 멤버 캐릭터를 편집할 수 있는 회원. 저장할 때 자동으로 계산 */
+  editorUids?: string[];
   /** 페이지 주소 별명 (v2.0 사용자 요청) — /rels/{별명}. 나중에 수정 화면에서 바꿀 수 있다.
    *  참조(AU 프로필 키·로그 연동 등)는 언제나 id로 저장되므로 바꿔도 끊어지지 않는다. */
   slug?: string;

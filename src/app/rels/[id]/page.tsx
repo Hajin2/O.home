@@ -9,6 +9,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { canEditRel, canDeleteRel, canEditChar, creatorGrants, stampRelEditors } from '@/lib/charAccess';
 import { useTheme } from '@/lib/ThemeProvider';
 import { useLocalList, newId } from '@/lib/postStore';
 import {
@@ -258,8 +259,10 @@ export default function RelDetailPage() {
   const { user, isAdmin } = useAuth();
   const toast = useToast();
   const { familyOf } = useFonts();
-  const [rels, setRels, loaded] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
+  const [rels, setRelsRaw, loaded] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [chars, setChars, charsLoaded] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
+  // 바뀐 자관에 서버용 편집 회원 목록을 붙여 저장 (포크 — 멤버 캐릭터 주인도 자관을 고칠 수 있게)
+  const setRels = (next: Relation[]) => setRelsRaw(stampRelEditors(next, rels, chars));
   const [logs] = useLocalList<TrpgLog>('ohome.trpg.v1', TRPG_SEED);
   const [rooms] = useLocalList<RpRoom>('ohome.rp.v1', RP_SEED);
   const [tab, setTab] = useState<'tl' | 'qa'>('tl');
@@ -375,6 +378,9 @@ export default function RelDetailPage() {
 
   // 별명 주소로도 열린다 (v2.0 사용자 요청 — 주소를 나중에 바꿔도 옛 주소가 살아 있게)
   const rel = findByKey(rels, id);
+  // 편집 — 관리자 · 만든 사람 · 멤버 캐릭터를 편집할 수 있는 회원 (포크). 삭제는 관리자·만든 사람만
+  const canEdit = !!rel && canEditRel(rel, chars, user?.id, isAdmin);
+  const canDel = !!rel && canDeleteRel(rel, user?.id, isAdmin);
 
   // 자관별 페이지 테마 (4.18 방식) — 별도 테마컬러면 홈 전체 팔레트를 임시 전환, 벗어나면 원복.
   // AU별 (v1.9): AU에 테마를 지정했으면 그것, 미지정이면 base(원본) 테마 따라가기
@@ -452,7 +458,7 @@ export default function RelDetailPage() {
      답했는지가 그대로 드러난다. 아예 「비공개 답변」 한 줄만 보여 준다.
      **관리자와 이 자관 캐릭터에 권한을 받은 회원은 전부 본다** — 답을 달 수 있는 사람이
      곧 권한자이므로, 자기 답변을 못 보는 경우는 생기지 않는다. */
-  const qaHidden = !!rel?.qaHide && !isAdmin && !hasRelGrant(rel.members, chars, user?.id);
+  const qaHidden = !!rel?.qaHide && !canEdit && !hasRelGrant(rel.members, chars, user?.id);
 
   /* 새 답변이 달리면 아래로 내려 최신 것을 보여 준다 (v2.0 사용자 요청 — 역극 채팅과 같은 동작).
      다만 **위로 올려 예전 답변을 읽는 중이면 끌어내리지 않는다** — 읽던 자리를 뺏기면 성가시다.
@@ -510,7 +516,7 @@ export default function RelDetailPage() {
     [rooms, rel, user]);
 
   if (!loaded) return <section className="page" />;
-  if (!rel || (rel.visibility === 'private' && !isAdmin) || (rel.visibility === 'member' && !user)) {
+  if (!rel || (rel.visibility === 'private' && !canEdit) || (rel.visibility === 'member' && !user)) {
     return (
       <section className="page">
         <div className="page-head"><PageTitle>RELATIONS</PageTitle><p>자관을 찾을 수 없거나 열람 권한이 없습니다</p></div>
@@ -527,7 +533,9 @@ export default function RelDetailPage() {
   };
 
   /* ---------- 멤버 추가 (내 캐릭터 or 새 상대 캐릭터) ---------- */
-  const candidates = chars.filter(c => !rel.members.some(m => m.charId === c.id));
+  // 회원은 남의 나만보기 캐릭터를 넣을 수 없다 (포크)
+  const candidates = chars.filter(c => !rel.members.some(m => m.charId === c.id)
+    && (isAdmin || c.visibility !== 'private' || canEditChar(c, user?.id, false)));
   const addMember = () => {
     let cid = mCharId;
     if (mMode === 'new') {
@@ -540,7 +548,8 @@ export default function RelDetailPage() {
         // (v2.0 사용자 요청). 팔레트는 캐릭터 수정에서 직접 넣는다
         colors: [], specs: [], tabs: [],
         basicHtml: '', visibility: 'public', thumbClass: '', own: false,
-        grants: mGrants.length ? mGrants : undefined, // 회원 권한 — 역극 플레이/편집 (v1.9)
+        grants: mGrants.length ? mGrants : creatorGrants(user?.id, isAdmin), // 회원 권한 — 역극 플레이/편집 (v1.9) · 회원이 만들면 본인에게 (포크)
+        authorId: user?.id,
       };
       setChars([...chars, nc]);
       cid = nc.id;
@@ -688,7 +697,7 @@ export default function RelDetailPage() {
   const canAnswerAs = (cid: string) => {
     if (isAdmin) return true;
     const c = findChar(chars, cid);
-    return !!user && !!c && charGrant(c, user.id) !== null;
+    return !!user && !!c && (charGrant(c, user.id) !== null || c.authorId === user.id);
   };
   const answerableIds = rel.members.map(m => m.charId).filter(canAnswerAs);
 
@@ -751,6 +760,10 @@ export default function RelDetailPage() {
 
   const removeMember = (cid: string) => {
     const c = charOf(cid);
+    // 회원은 자기가 편집할 수 있는 캐릭터만 뺄 수 있다 — 자관을 만든 사람은 예외 (포크)
+    if (!isAdmin && rel.authorId !== user?.id && !(c && canEditChar(c, user?.id, false))) {
+      toast('내 캐릭터만 멤버에서 뺄 수 있어요'); return;
+    }
     const name = c?.name ?? '멤버';
     del.ask(`멤버 「${name}」를 제거하시겠습니까?`,
       () => updateRel({
@@ -831,7 +844,7 @@ export default function RelDetailPage() {
         );
       })()}
 
-      {(rel.aus.length > 1 || isAdmin) && (
+      {(rel.aus.length > 1 || canEdit) && (
         <div className="au-list">
           {/* AU 네모에 대표 이미지를 넣는다 (v2.0 사용자 요청 — 색만 들어가 있어 밋밋했다).
               원본은 자관 썸네일(잡아 둔 크롭 그대로), 그 외 AU는 그 AU의 첫 아트 = 대표 이미지.
@@ -848,14 +861,14 @@ export default function RelDetailPage() {
               </div>
             );
           })}
-          {isAdmin && (
+          {canEdit && (
             <div className="au-item add" data-tip="AU 추가/관리" onClick={() => setAuOpen(true)}>＋</div>
           )}
         </div>
       )}
 
-      {/* 관리자 액션 (좌상단) */}
-      {isAdmin && (
+      {/* 관리자 액션 (좌상단) — 편집 가능한 회원 포함 (포크) */}
+      {canEdit && (
         <div className="rel-admin-actions">
           {/* AU 선택 중이면 그 AU의 일러·캐치프레이즈를 편집 (v1.9) */}
           <button className="btn btn-dark" style={{ height: 30, padding: '0 13px', fontSize: 11 }}
@@ -865,10 +878,12 @@ export default function RelDetailPage() {
           {/* AU를 보는 중이면 지워지는 것도 그 AU다 (v2.0 사용자 발견 — 자관이 통째로 지워졌다).
               EDIT은 AU를 따라가는데 DELETE만 안 따라가서, AU 화면에서 누르면 자관 전체가 날아갔다.
               버튼 글씨에도 무엇이 지워지는지 그대로 쓴다 */}
+          {(canDel || !isBaseAu) && (
           <button className="btn btn-dark" style={{ height: 30, padding: '0 13px', fontSize: 11 }}
             onClick={() => (isBaseAu ? setDelAsk(true) : setAuDelAsk(au!.id))}>
             {isBaseAu ? 'DELETE' : `DELETE ${au!.label}`}
           </button>
+          )}
         </div>
       )}
 
@@ -948,13 +963,13 @@ export default function RelDetailPage() {
           {charsLoaded && pairSlots[0] && !charOf(pairSlots[0].charId)
             ? <LockedCard />
             : pairSlots[0]
-            ? <MiniProf member={pairSlots[0]} char={charOf(pairSlots[0].charId)} isAdmin={isAdmin}
+            ? <MiniProf member={pairSlots[0]} char={charOf(pairSlots[0].charId)} isAdmin={canEdit}
                 auUnregistered={auUnregOf(pairSlots[0].charId)}
                 side="l" onMoveSide={() => moveSide(pairSlots[0]!.charId)}
                 onFaceCrop={ref => setFaceEdit({ charId: pairSlots[0]!.charId, ref, crop: pairSlots[0]!.faceCrop })}
                 onGo={() => router.push(charHref(pairSlots[0]!.charId))}
                 onRemove={() => removeMember(pairSlots[0]!.charId)} />
-            : <EmptyCard isAdmin={isAdmin} onAdd={() => setMemberOpen(true)} />}
+            : <EmptyCard isAdmin={canEdit} onAdd={() => setMemberOpen(true)} />}
           <div className={`rel-center ${single ? 'one-mode' : ''}`}
             style={{ background: 'rgba(255,255,255,.04)', border: '1px solid var(--line-dark)' }}>
             {/* 전신 — 등록 이미지(AU별 우선) + 크기/앞뒤는 자관 수정의 미리보기에서 (v1.9) */}
@@ -977,7 +992,7 @@ export default function RelDetailPage() {
             <div className="single" ref={artBoxRef} style={{ cursor: auArts.length > 1 ? 'pointer' : undefined }}
               onClick={() => { const n = auArts.length; if (n > 1) setArtIdx(i => (i + 1) % n); }}
               onContextMenu={e => {
-                if (!isAdmin || !curArt) return;
+                if (!canEdit || !curArt) return;
                 e.preventDefault();
                 setArtCtx({ x: e.clientX, y: e.clientY, ref: curArt });
               }}>
@@ -1012,13 +1027,13 @@ export default function RelDetailPage() {
           {charsLoaded && pairSlots[1] && !charOf(pairSlots[1].charId)
             ? <LockedCard />
             : pairSlots[1]
-            ? <MiniProf member={pairSlots[1]} char={charOf(pairSlots[1].charId)} isAdmin={isAdmin}
+            ? <MiniProf member={pairSlots[1]} char={charOf(pairSlots[1].charId)} isAdmin={canEdit}
                 auUnregistered={auUnregOf(pairSlots[1].charId)}
                 side="r" onMoveSide={() => moveSide(pairSlots[1]!.charId)}
                 onFaceCrop={ref => setFaceEdit({ charId: pairSlots[1]!.charId, ref, crop: pairSlots[1]!.faceCrop })}
                 onGo={() => router.push(charHref(pairSlots[1]!.charId))}
                 onRemove={() => removeMember(pairSlots[1]!.charId)} />
-            : <EmptyCard isAdmin={isAdmin} onAdd={() => setMemberOpen(true)} />}
+            : <EmptyCard isAdmin={canEdit} onAdd={() => setMemberOpen(true)} />}
         </div>
       ) : (
         /* 다인 자관 — 프로토타입 multi-body: 좌 멤버 리스트(430px) + 우 그룹 일러 */
@@ -1056,13 +1071,13 @@ export default function RelDetailPage() {
                   <div className="gem-mini">
                     {(c.colors ?? []).slice(0, 3).map(p => <i key={p.hex + p.label} style={{ background: p.hex }} />)}
                   </div>
-                  {isAdmin && (
+                  {canEdit && (
                     <span className="rm" onClick={e => { e.stopPropagation(); removeMember(m.charId); }}>제거</span>
                   )}
                 </div>
               );
             })}
-            {isAdmin && rel.members.length < 6 && (
+            {canEdit && rel.members.length < 6 && (
               <div className="mrow add" onClick={() => setMemberOpen(true)}>＋ ADD MEMBER (최대 6인)</div>
             )}
           </div>
@@ -1072,7 +1087,7 @@ export default function RelDetailPage() {
             style={{ cursor: auArts.length > 1 ? 'pointer' : undefined }}
             onClick={() => { const n = auArts.length; if (n > 1) setArtIdx(i => (i + 1) % n); }}
             onContextMenu={e => {
-              if (!isAdmin || !curArt) return;
+              if (!canEdit || !curArt) return;
               e.preventDefault();
               setArtCtx({ x: e.clientX, y: e.clientY, ref: curArt });
             }}>
@@ -1100,11 +1115,11 @@ export default function RelDetailPage() {
           <button className={tab === 'tl' ? 'on' : ''} onClick={() => setTab('tl')}><span className="lb-pc">TIMELINE</span><span className="lb-m">T</span></button>
           {/* QUESTIONS 섹션은 ＋로 추가해야 생김 (v1.9) — 처음에는 타임라인만 */}
           {qaOn && <button className={tab === 'qa' ? 'on' : ''} onClick={() => setTab('qa')}><span className="lb-pc">QUESTIONS</span><span className="lb-m">Q</span></button>}
-          {isAdmin && !qaOn && (
+          {canEdit && !qaOn && (
             <button data-tip="QUESTIONS 섹션 추가" style={{ color: 'var(--faint)', fontSize: 14, padding: '0 6px' }}
               onClick={() => setQsetOpen(true)}>＋</button>
           )}
-          {isAdmin && (
+          {canEdit && (
             <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
               {/* 이 줄의 버튼은 홈 공통 버튼과 같은 세로 크기(35px)로 — 탭 줄에서만 작아 보이던 것 */}
               {tab === 'tl' && auTimeline.length > 1 && (
@@ -1165,7 +1180,7 @@ export default function RelDetailPage() {
               /* 수정·삭제는 우클릭 메뉴로 (v2.0 사용자 요청) — 늘 떠 있는 [삭제] 글자는 없앴다 */
               <div className="tl-item" key={i}
                 onContextMenu={e => {
-                  if (!isAdmin) return;
+                  if (!canEdit) return;
                   e.preventDefault();
                   setTlCtx({ x: e.clientX, y: e.clientY, idx: i });
                 }}>
@@ -1195,7 +1210,7 @@ export default function RelDetailPage() {
                   <div className="qa-answers" ref={ansRef} onScroll={onAnsScroll}>
                   <div className="qa-no">TODAY&apos;S QUESTION · Q.{String(curQa.no).padStart(3, '0')}
                     {/* 질문에 대한 오너 설명 — 관리자만 작성 (v2.0 사용자 요청) */}
-                    {isAdmin && (
+                    {canEdit && (
                       <small style={{ cursor: 'var(--cur-pointer,pointer)', color: 'var(--accent)', marginLeft: 8, fontWeight: 400, letterSpacing: 0 }}
                         onClick={() => setQNote({ no: curQa.no, text: curQa.note ?? '' })}>
                         {curQa.note ? '설명 수정' : '＋ 설명'}
@@ -1288,8 +1303,8 @@ export default function RelDetailPage() {
                      바로 모달이 뜨는 것보다 한 단계 거치는 쪽이 실수로 우클릭했을 때 안전하다).
                      지금 보고 있는 질문이 아니어도 리스트에서 바로 고를 수 있다 */
                   <div key={q.no} className={`qa-item ${curQa?.no === q.no ? 'on' : ''}`} onClick={() => setQaNo(q.no)}
-                    data-tip={isAdmin ? '우클릭 — 리스트로 되돌리기' : undefined}
-                    onContextMenu={e => { if (!isAdmin) return; e.preventDefault(); setQaCtx({ x: e.clientX, y: e.clientY, no: q.no }); }}>
+                    data-tip={canEdit ? '우클릭 — 리스트로 되돌리기' : undefined}
+                    onContextMenu={e => { if (!canEdit) return; e.preventDefault(); setQaCtx({ x: e.clientX, y: e.clientY, no: q.no }); }}>
                     <b>Q.{String(q.no).padStart(3, '0')} {q.q}</b>
                     <small>{q.date.slice(5).replace('-', '.')} · 답변 {answersOf(q.no).length}</small>
                   </div>
@@ -1383,11 +1398,13 @@ export default function RelDetailPage() {
                 <span className="cp-lb">테마색</span>
                 <ColorField value={mColor} onChange={setMColor} />
               </div>
-              {/* 회원 권한 — 역극 플레이 / 편집까지 (3차 회원-캐릭터 연결, v1.9) */}
+              {/* 회원 권한 — 역극 플레이 / 편집까지 (3차 회원-캐릭터 연결, v1.9) · 관리자만 (포크) */}
+              {isAdmin && (
               <div>
                 <label className="k-label" style={{ marginBottom: 7 }}>회원 권한 (선택)</label>
                 <GrantsEditor value={mGrants} onChange={setMGrants} />
               </div>
+              )}
             </>
           )}
           <KInput placeholder="캐릭터 한마디 (선택 — 타이틀 옆 인용구)" value={mQuote} onChange={e => setMQuote(e.target.value)} />
