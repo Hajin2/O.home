@@ -62,23 +62,11 @@ export function useWorldTabs(base: Character[], onTabChange?: () => void) {
     </button>
   );
 
-  const element = hidden ? null : (
-    <div className="wtabs" role="tablist" aria-label="세계관">
-      {/* 색은 페이지 제목·설명 색 변수를 따른다 — 밝은/어두운 테마 어디서나 보이게 */}
-      <style>{`
-        .wtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
-        .wtabs::-webkit-scrollbar{display:none}
-        .wtabs>button{flex-shrink:0;white-space:nowrap;font-family:var(--serif);letter-spacing:.14em;font-size:calc(14px*var(--fs,1));
-          color:var(--page-desc,var(--faint));padding:6px 14px 11px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:.15s;opacity:.85}
-        .wtabs>button:hover{opacity:1;color:var(--page-title,var(--ink))}
-        .wtabs>button.on{opacity:1;color:var(--page-title,var(--ink));border-bottom-color:var(--page-title,var(--ink))}
-        .wtabs>button small{font-family:var(--sans,inherit);letter-spacing:0;font-size:11px;margin-left:6px;opacity:.7}
-      `}</style>
+  const element = hidden ? null : <TabScroller>
       {btn('', '전체', base.length)}
       {tabs.map(w => btn(w.id, w.name, counts[w.id] ?? 0))}
       {showNone && btn(NO_WORLD, '미지정', counts[NO_WORLD] ?? 0)}
-    </div>
-  );
+    </TabScroller>;
 
   return { tab, setTab, match, element };
 }
@@ -90,5 +78,77 @@ export function mergeInPlace<T extends { id: string }>(all: T[], reorderedShown:
   const shownIds = new Set(reorderedShown.map(x => x.id));
   let k = 0;
   return all.map(x => (shownIds.has(x.id) ? reorderedShown[k++] ?? x : x));
+}
+
+/** 가로로 넘치는 탭 줄 — 넘칠 때만 양옆에 ‹ › 버튼이 생기고, 탭 위에서 마우스 휠을 굴려도 옆으로 넘어간다
+ *  (예전엔 Shift+휠을 알아야만 넘어갔다). 색은 페이지 제목·설명 색 변수를 따른다 — 밝은/어두운 테마 어디서나 보이게 */
+export function TabScroller({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edge, setEdge] = useState({ l: false, r: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setEdge({ l: el.scrollLeft > 2, r: el.scrollLeft + el.clientWidth < el.scrollWidth - 2 });
+  }, []);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    let ro: ResizeObserver | null = null;
+    try { ro = new ResizeObserver(update); ro.observe(el); } catch { /* 무시 */ }
+    // 세로 휠 → 가로 이동 (넘칠 때만, 끝에 닿으면 페이지 스크롤로 넘겨 준다)
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      if (el.scrollWidth <= el.clientWidth) return;
+      const atStart = el.scrollLeft <= 0 && e.deltaY < 0;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 && e.deltaY > 0;
+      if (atStart || atEnd) return;
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => { ro?.disconnect(); el.removeEventListener('wheel', onWheel); };
+  }, [update, children]);
+  const go = (d: number) => {
+    const el = ref.current;
+    if (el) el.scrollBy({ left: d * Math.max(160, el.clientWidth * 0.6), behavior: 'smooth' });
+  };
+  const over = edge.l || edge.r;   // 넘칠 때만 넘김 버튼
+  return (
+    <div className="wtabs-wrap">
+      <style>{`
+        .wtabs-wrap{display:flex;align-items:stretch;border-bottom:1px solid var(--line);margin-bottom:14px}
+        .wtabs{flex:1;min-width:0;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;scroll-behavior:smooth}
+        .wtabs::-webkit-scrollbar{display:none}
+        .wtabs>button{flex-shrink:0;white-space:nowrap;font-family:var(--serif);letter-spacing:.14em;font-size:calc(14px*var(--fs,1));
+          color:var(--page-desc,var(--faint));padding:6px 14px 11px;border-bottom:2px solid transparent;transition:.15s;opacity:.85}
+        .wtabs>button:hover{opacity:1;color:var(--page-title,var(--ink))}
+        .wtabs>button.on{opacity:1;color:var(--page-title,var(--ink));border-bottom-color:var(--page-title,var(--ink))}
+        .wtabs>button small{font-family:var(--sans,inherit);letter-spacing:0;font-size:11px;margin-left:6px;opacity:.7}
+        /* 넘김 버튼 — 탭 줄 오른쪽 끝에 조용히 붙는 작은 화살표 두 개 (탭 글자를 가리지 않게) */
+        /* 넘치는 쪽 끝을 살짝 흐리게 — 배경색과 상관없이 (mask) */
+        .wtabs.fr{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,#000 calc(100% - 36px),transparent)}
+        .wtabs.fl{-webkit-mask-image:linear-gradient(to left,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to left,#000 calc(100% - 36px),transparent)}
+        .wtabs.fl.fr{-webkit-mask-image:linear-gradient(to right,transparent,#000 36px,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(to right,transparent,#000 36px,#000 calc(100% - 36px),transparent)}
+        .wtabs-nav{flex-shrink:0;display:flex;align-items:center;gap:2px;padding:0 0 6px 10px}
+        .wtabs-nav button{width:24px;height:24px;border:0;background:transparent;padding:0;display:grid;place-items:center;
+          color:var(--page-title,var(--ink));opacity:.7;cursor:var(--cur-pointer,pointer);border-radius:6px;transition:.15s}
+        .wtabs-nav button svg{width:14px;height:14px}
+        .wtabs-nav button:hover:not(:disabled){opacity:1;background:rgba(127,127,127,.14)}
+        .wtabs-nav button:disabled{opacity:.22;cursor:default}
+      `}</style>
+      <div ref={ref} className={`wtabs${edge.l ? ' fl' : ''}${edge.r ? ' fr' : ''}`} role="tablist" aria-label="세계관" onScroll={update}>{children}</div>
+      {over && (
+        <div className="wtabs-nav">
+          <button type="button" aria-label="앞 탭 보기" disabled={!edge.l} onClick={() => go(-1)}>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5" /></svg>
+          </button>
+          <button type="button" aria-label="뒤 탭 보기" disabled={!edge.r} onClick={() => go(1)}>
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M6 3.5 10.5 8 6 12.5" /></svg>
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 

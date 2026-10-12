@@ -1683,7 +1683,7 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 /* 우측 설정 패널 크기 통일 — 내용이 길어지면 내부 스크롤 없이 아래로 늘어남 (v1.9) */
 .settings-layout > .panel:not(.set-nav){min-height:calc(100vh - 250px);width:100%;box-sizing:border-box}
 .set-nav button{display:block;width:100%;text-align:left;padding:10px 13px;font-size:calc(12.5px*var(--fs,1));border-radius:8px;color:var(--sub);transition:.14s}
-.set-nav button:hover{background:var(--dd-hv,#eef0f2);color:var(--ink)}  /* 드롭다운 호버와 같은 테마 색 (v2.0 사용자 요청) */
+.set-nav button:hover{background:#eef0f2;color:var(--ink)}
 .set-nav button.on{background:var(--ink);color:#fff}
 .set-sec{margin-bottom:26px}
 .set-sec h3{font-size:calc(13px*var(--fs,1));letter-spacing:.08em;margin-bottom:4px;color:var(--ink)}
@@ -1818,3 +1818,7 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 /* 자관 목록 카드의 「멤버」 뱃지 (포크 수정) — 원작의 `.rel-card .nm span`(설명 줄용: 한 줄 전체·오른쪽 여백)에
    뱃지 span까지 걸려 카드 폭 전체 막대가 되던 것을 이름 옆 작은 알약으로 되돌린다 */
 .rel-card .nm b .pill{display:inline-block;vertical-align:middle;padding:2px 8px;margin-top:-2px;font-family:var(--sans,inherit);letter-spacing:.04em;font-weight:500}
+
+/* 이미지 저장 방지 보강 (포크 수정) — 아이폰 사파리의 「길게 눌러 이미지 저장」 메뉴 막기.
+   iOS는 길게 눌러도 contextmenu 신호를 주지 않아 ImgProtect의 우클릭 차단이 안 걸렸다 */
+.img-protect-on img{-webkit-touch-callout:none;-webkit-user-select:none}
