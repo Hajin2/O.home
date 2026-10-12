@@ -6,8 +6,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Character, CharTab, ColorChip, Visibility, CharGrant } from '@/lib/charStore';
 import { GrantsEditor } from '@/components/chars/GrantsEditor';
-import { TplPicker, TplTabEditView, initialValues } from '@/components/chars/TplTabs';
-import { renderTpl } from '@/lib/tplRender';
+import { TplPicker, TplTabEditView, initialValues, tabsFromTpl } from '@/components/chars/TplTabs';
+import { TabRows } from '@/components/chars/TabRows';
 import { newId } from '@/lib/postStore';
 import { putBlob, getBlob, useBlobUrl } from '@/lib/blobStore';
 import { useFonts, deVarFamily } from '@/lib/fontStore';
@@ -156,12 +156,8 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds, w
   const curTab = tabs.find(t => t.id === view);
   // 양식 탭 — 묶음 전체의 칸을 한 화면에서 (캐릭터 양식, 포크)
   if (curTab?.tpl) {
-    const { group, id: tplId, page } = curTab.tpl;
     return <>
-      <TplTabEditView tplId={tplId} values={curTab.tpl.values} startPage={page}
-        onChange={(values, tpl) => setTabs(l => l.map(x => (x.tpl?.group === group
-          ? { ...x, tpl: { ...x.tpl, values }, html: renderTpl(tpl.pages[x.tpl.page]?.html ?? '', values) }
-          : x)))}
+      <TplTabEditView tab={curTab} tabs={tabs} setTabs={setTabs} onOpen={setView}
         onDelete={() => askDeleteTab(curTab.id, () => setView('main'))}
         onBack={() => setView('main')} />
       {del.element}
@@ -279,19 +275,8 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds, w
 
         {/* 추가 탭 — 목록만, 내용은 전용 화면에서 */}
         <label className="k-label" style={{ margin: 0 }}>추가 탭 — 내용은 [편집]을 눌러 전용 화면에서 작성</label>
-        {tabs.map(t => (
-          <div key={t.id} style={{ display: 'flex', gap: 8, alignItems: 'center', border: '1.5px solid var(--line)', borderRadius: 8, padding: '8px 10px' }}>
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: '#eef0f2', display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{t.icon}</span>
-            <b style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title || '(제목 없음)'}</b>
-            {t.subtitle && <small style={{ color: 'var(--faint)', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subtitle}</small>}
-            {t.tpl
-              ? <small style={{ color: 'var(--faint)', fontSize: 10.5, flexShrink: 0 }}>양식</small>
-              : <small style={{ color: 'var(--faint)', fontSize: 10.5, flexShrink: 0 }}>{t.html ? `${t.html.length.toLocaleString()}자` : '비어 있음'}</small>}
-            <button className="btn btn-dark" style={{ marginLeft: 'auto', height: 27, padding: '0 12px', fontSize: 11 }}
-              onClick={() => setView(t.id)}>편집 ›</button>
-            <span className="fx" onClick={() => askDeleteTab(t.id)}>✕</span>
-          </div>
-        ))}
+        {/* 탭 목록 — 손잡이로 끌어 순서 바꾸기 (포크: TabRows) */}
+        <TabRows tabs={tabs} onReorder={setTabs} onEdit={setView} onDelete={id => askDeleteTab(id)} />
         <button className="btn btn-ghost" style={addBtn}
           onClick={() => {
             const id = newId();
@@ -300,12 +285,7 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds, w
           }}>＋ ADD TAB</button>
         {/* 캐릭터 양식으로 탭 추가 (포크) — 양식의 탭 수만큼 생기고 값을 공유한다 */}
         <TplPicker worldId={worldId || initial?.worldId} onPick={tpl => {
-          const group = newId();
-          const values = initialValues(tpl, name);
-          const made = tpl.pages.map((p, i) => ({
-            id: newId(), icon: p.icon, title: p.title, html: renderTpl(p.html, values),
-            tpl: { id: tpl.id, page: i, group, values },
-          }));
+          const made = tabsFromTpl(tpl, initialValues(tpl, name));
           setTabs(l => [...l, ...made]);
           setView(made[0].id);
         }} />

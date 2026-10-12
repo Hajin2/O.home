@@ -9,10 +9,21 @@ import { parseTplCode, renderTpl, type TplCode, type TplField, type TplValues } 
 import { useWorldList } from '@/lib/worldStore';
 import { newId } from '@/lib/postStore';
 import { sanitizeHtml } from '@/lib/sanitize';
-import { KSelect, KTextarea } from '@/components/ui/Kit';
+import { KInput, KSelect, KTextarea } from '@/components/ui/Kit';
 import { useConfirmDelete } from '@/components/ui/Modal';
 import { useToast } from '@/components/ui/Toast';
 import { PageTitle } from '@/components/ui/PageText';
+import { explainDbError } from '@/lib/dbError';
+
+/** 저장 실패를 알아볼 수 있는 말로 — 표가 아직 없으면 SQL 안내 (위젯 때처럼 조용히 실패하지 않게) */
+function failMsg(step: string, e: unknown): string {
+  const msg = e instanceof Error ? e.message
+    : e && typeof e === 'object' && 'message' in e ? String((e as { message: unknown }).message) : String(e);
+  console.error('[ohome] 양식 ' + step + ' 실패', e);
+  if (/char_templates/.test(msg) && /(does not exist|relation|schema cache|pgrst205|could not find the table)/i.test(msg))
+    return '저장하지 못했어요 — Supabase에 양식 표가 아직 없어요. SQL Editor에서 char_templates.sql을 실행해 주세요';
+  return `${step}에 실패했어요 — ${explainDbError(msg) || msg || '다시 시도해 주세요'}`;
+}
 
 /** 미리보기용 예시 값 — 칸 이름·안내 글로 채운다 */
 function sampleOf(fields: TplField[]): TplValues {
@@ -47,9 +58,20 @@ function Preview({ code }: { code: TplCode }) {
   );
 }
 
+/** 양식 코드를 .json 파일로 — 등록할 때 붙여 넣는 형식 그대로 */
+function downloadTpl(t: CharTemplate) {
+  const json = JSON.stringify({ name: t.name, fields: t.fields, pages: t.pages }, null, 2);
+  const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${t.name.replace(/[\\/:*?"<>|]+/g, '_') || '양식'}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function TemplateForm({ initial, onSave, onCancel }: {
   initial: CharTemplate | null;
-  onSave: (t: CharTemplate) => void;
+  onSave: (t: CharTemplate) => Promise<void>;
   onCancel: () => void;
 }) {
   const worlds = useWorldList();
@@ -58,17 +80,21 @@ function TemplateForm({ initial, onSave, onCancel }: {
     : ''));
   const [worldId, setWorldId] = useState(initial?.worldId ?? '');
   const parsed = useMemo(() => (raw.trim() ? parseTplCode(raw) : null), [raw]);
+  const [busy, setBusy] = useState(false);
+  const [nameEdit, setNameEdit] = useState<string | null>(null);   // 양식 이름 — 코드를 안 고치고 바꾸기
 
   const loadFile = async (f?: File) => { if (f) setRaw(await f.text()); };
-  const submit = () => {
-    if (!parsed?.code) return;
-    onSave({
+  const submit = async () => {
+    if (!parsed?.code || busy) return;
+    setBusy(true);
+    try { await onSave({
       ...parsed.code,
+      name: nameEdit?.trim() || parsed.code.name,
       id: initial?.id ?? newId(),
       worldId: worldId || undefined,
       visibility: 'public',
       date: initial?.date ?? new Date().toISOString().slice(0, 10),
-    });
+    }); } finally { setBusy(false); }
   };
 
   return (
@@ -96,8 +122,12 @@ function TemplateForm({ initial, onSave, onCancel }: {
       )}
       {parsed?.code && (
         <>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12 }}>양식 이름</span>
+            <KInput value={nameEdit ?? parsed.code.name} onChange={e => setNameEdit(e.target.value)} style={{ flex: 1, minWidth: 180, maxWidth: 360 }} />
+          </div>
           <div style={{ fontSize: 12.5 }}>
-            <b>{parsed.code.name}</b> · 탭 {parsed.code.pages.length}개 · 입력칸 {parsed.code.fields.filter(f => f.type !== 'heading').length}개
+            탭 {parsed.code.pages.length}개 · 입력칸 {parsed.code.fields.filter(f => f.type !== 'heading').length}개
           </div>
           <Preview code={parsed.code} />
         </>
@@ -105,7 +135,7 @@ function TemplateForm({ initial, onSave, onCancel }: {
 
       <div className="form-actions">
         <button className="btn btn-ghost" onClick={onCancel}>CANCEL</button>
-        <button className="btn btn-dark" onClick={submit} disabled={!parsed?.code}>{initial ? 'SAVE' : 'ADD'}</button>
+        <button className="btn btn-dark" onClick={() => void submit()} disabled={!parsed?.code || busy}>{busy ? '저장 중…' : initial ? 'SAVE' : 'ADD'}</button>
       </div>
     </div>
   );
@@ -138,7 +168,9 @@ export default function TemplatesPage() {
         <div style={{ marginBottom: 16 }}>
           <TemplateForm initial={editing === 'new' ? null : editing} onCancel={() => setEditing(null)}
             onSave={async t => {
-              await tpls.save(editing === 'new' ? [...tpls.list, t] : tpls.list.map(x => (x.id === t.id ? t : x)));
+              try {
+                await tpls.save(editing === 'new' ? [...tpls.list, t] : tpls.list.map(x => (x.id === t.id ? t : x)));
+              } catch (e) { toast(failMsg('저장', e)); return; }
               toast(editing === 'new' ? '양식이 등록되었습니다' : '저장되었습니다 — 이 양식을 쓰는 캐릭터에 바로 반영돼요');
               setEditing(null);
             }} />
@@ -154,9 +186,16 @@ export default function TemplatesPage() {
                 {worldName(t.worldId)} · 탭 {t.pages.map(p => `${p.icon} ${p.title}`).join(' / ')} · 입력칸 {t.fields.filter(f => f.type !== 'heading').length}개
               </div>
             </div>
+            <button className="btn btn-ghost" data-tip="양식 코드(.json) 파일로 내려받기 — 백업·공유용" onClick={() => downloadTpl(t)}>내려받기</button>
+            <button className="btn btn-ghost" data-tip="사본을 만들어 고쳐 쓰기" onClick={async () => {
+              const copy: CharTemplate = { ...t, id: newId(), name: `${t.name} 사본`, date: new Date().toISOString().slice(0, 10) };
+              try { await tpls.save([...tpls.list, copy]); } catch (e) { toast(failMsg('복제', e)); return; }
+              toast('사본을 만들었습니다');
+            }}>복제</button>
             <button className="btn btn-ghost" onClick={() => setEditing(t)}>EDIT</button>
             <button className="btn btn-ghost" onClick={() => del.ask(`양식 「${t.name}」을 삭제하시겠습니까?`, async () => {
-              await tpls.save(tpls.list.filter(x => x.id !== t.id));
+              try { await tpls.save(tpls.list.filter(x => x.id !== t.id)); }
+              catch (e) { toast(failMsg('삭제', e)); return; }
               toast('삭제되었습니다');
             }, '이 양식으로 만든 캐릭터 탭은 마지막으로 저장한 모습 그대로 남지만, 더는 칸을 고칠 수 없게 됩니다.')}>DELETE</button>
           </div>
