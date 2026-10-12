@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
 import { Character, CHAR_SEED, charGrant, charWithAu, chipBorder, Relation, REL_SEED , findByKey} from '@/lib/charStore';
 import { sanitizeHtml } from '@/lib/sanitize';
+import { useTemplates, tabHtmlOf } from '@/lib/tplStore';
 import { useFonts } from '@/lib/fontStore';
 import { useTheme } from '@/lib/ThemeProvider';
 import { createPortal } from 'react-dom';
@@ -91,9 +92,11 @@ function CharDetailInner() {
   }, [pageColor, setPageTheme]);
 
   const curTab = eff?.tabs.find(t => t.id === tab);
+  // 양식 탭은 지금 양식으로 다시 그린다 — 양식을 고치면 모든 캐릭터에 바로 반영 (캐릭터 양식, 포크)
+  const templates = useTemplates();
   const tabHtml = useMemo(
-    () => (loaded && curTab ? sanitizeHtml(curTab.html) : ''),
-    [loaded, curTab],
+    () => (loaded && curTab ? sanitizeHtml(tabHtmlOf(curTab, templates.list)) : ''),
+    [loaded, curTab, templates.list],
   );
   const basicHtml = useMemo(
     () => (loaded && eff ? sanitizeHtml(eff.basicHtml) : ''),
@@ -296,8 +299,9 @@ function CharDetailInner() {
             </>
           ) : (
             <>
-              <h3 className="tab-tt">{curTab?.title}</h3>
-              {curTab?.subtitle && <div className="sub">{curTab.subtitle}</div>}
+              {/* 양식 탭은 양식 안에 제목이 들어 있어 탭 제목을 따로 그리지 않는다 (캐릭터 양식, 포크) */}
+              {!curTab?.tpl && <h3 className="tab-tt">{curTab?.title}</h3>}
+              {!curTab?.tpl && curTab?.subtitle && <div className="sub">{curTab.subtitle}</div>}
               <div className="prose" dangerouslySetInnerHTML={{ __html: tabHtml }} />
             </>
           )}

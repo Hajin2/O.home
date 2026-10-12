@@ -347,3 +347,30 @@ AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **�
 | `components/chars/WorldTabs.tsx` (새 파일) | 탭 줄을 `TabScroller`로 — 넘칠 때만 탭 줄 오른쪽 끝에 작은 ‹ › (끝에 닿은 쪽은 흐리게), 넘치는 쪽 끝 탭은 살짝 흐려지게(mask), 탭 위에서 마우스 휠만 굴려도 옆으로(예전엔 Shift+휠) |
 | `components/ui/TagFilter.tsx` (새 파일) | 태그 칩 줄을 기본 **한 줄**로 접고 오른쪽 끝 「펼치기 ▾」 / 펼치면 맨 끝 「접기 ▴」. 접혀 있어도 고른 태그는 앞으로 당겨 보임. 펼침 여부는 보는 사람 브라우저에 기억(모든 목록 공통). 예전 「+N 더 보기」(24개 기준) 대체. TRPG 로그 목록 오른쪽 세로 태그 칸은 원작 방식 그대로 |
 
+
+## 27. 캐릭터 양식 (TEMPLATES)
+
+관리자가 **양식 코드(JSON)** 를 등록해 두면, 캐릭터 편집의 「＋ 양식으로 추가」에서 골라 칸만 채우면 탭이 완성되는 기능.
+양식의 탭 수만큼 캐릭터 탭이 한꺼번에 생기고(같은 묶음 = 값 공유), 입력 화면은 묶음 전체를 한 화면에서 편집(서식 B·I·S, 「글로 한 번에 입력」, 오른쪽 미리보기).
+캐릭터에는 **값만** 저장하고 보여 줄 때 **지금 양식으로 다시 그림** → 양식을 고치면 그 양식을 쓰는 모든 캐릭터에 바로 반영. 양식을 지워도 탭은 마지막 저장 모습(html) 그대로 남음.
+입력한 값은 전부 이스케이프(그 안의 HTML은 글자로 보임) — 서식은 `**굵게**` `*기울임*` `~~취소선~~`만. 최종 HTML은 원작 sanitize를 거침.
+양식 관리: 세계관 화면 TEMPLATES 버튼 → `/templates` (관리자 전용). 세계관을 연결하면 그 세계관 캐릭터에서 목록 맨 위. 양식 이름은 코드를 안 고치고 「양식 이름」 칸에서 바꿈 · 「내려받기」(.json 백업) · 「복제」(사본 만들어 고쳐 쓰기).
+양식 입력 화면: 서식 B·I·S와 탭 고르기 줄이 **스크롤해도 위에 붙어 있음** · 탭마다 **이름·아이콘 바꾸기**(「원래대로」로 되돌리기) · **「이 탭만 빼기」**(내용은 남음) → 「다시 넣기」로 되살림. 양식에 나중에 새 탭이 생겨도 같은 「다시 넣기」로 추가.
+**추가 탭 목록은 왼쪽 손잡이(⋮⋮)를 끌어 순서 변경** — 일반 탭·양식 탭 모두, 마우스·터치 모두. 양식 탭은 「양식 · 양식 이름」으로 표시.
+
+**Supabase**: `supabase/char_templates.sql`을 SQL Editor에서 한 번 Run (읽기 누구나 · 쓰기 관리자만 · `editor_ids` 칸 포함). 안 하면 양식 저장 시 「양식 표가 아직 없어요」 알림.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `lib/tplRender.ts` (새 파일) | 양식 코드 검사(`parseTplCode`) · 렌더(`{{key}}` `{{#key}}…{{/key}}` `{{^key}}` `{{.}}` `{{@n}}` `{{key.count}}` `|blank`) · 글↔값 변환 |
+| `lib/tplStore.ts` (새 파일) | 양식 목록(`ohome.ctpl.v1` → `char_templates`) · `tabHtmlOf`(양식 탭을 지금 양식으로) |
+| `components/chars/TplTabs.tsx` (새 파일) | 양식 고르기 · 양식 탭 입력 화면(붙어 있는 서식 줄 · 탭 이름 · 빼기/다시 넣기) · `tabsFromTpl` |
+| `components/chars/TabRows.tsx` (새 파일) | 추가 탭 목록 — 끌어서 순서 바꾸기 |
+| `app/templates/page.tsx` (새 파일) | 양식 관리(등록·수정·삭제·미리보기 · 이름 바꾸기 · 내려받기 · 복제). 저장 실패 시 이유를 알림으로 |
+| `supabase/char_templates.sql` (새 파일) | 표 + 권한 |
+| `lib/backend/types.ts` | `'ohome.ctpl.v1': 'char_templates'` 1줄 |
+| `lib/charStore.ts` | `CharTab`에 `tpl?` 1칸(+주석) |
+| `lib/firebaseRules.ts` | `char_templates` 규칙 몇 줄 (읽기 공개 · 쓰기 관리자) |
+| `app/chars/[id]/page.tsx` | import 1줄 · 탭 HTML을 `tabHtmlOf`로 · 양식 탭은 탭 제목 줄 숨김 |
+| `components/chars/CharEditForm.tsx` | import 2줄 · 양식 탭 묶음 삭제 · 양식 탭이면 `TplTabEditView` · 탭 목록 `tabs.map(…)` 블록을 `<TabRows … />` 한 줄로 · ADD TAB 아래 `TplPicker` |
+| `app/worlds/page.tsx` (포크 파일) | TEMPLATES 버튼 1줄 |

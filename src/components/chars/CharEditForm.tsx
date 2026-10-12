@@ -6,6 +6,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Character, CharTab, ColorChip, Visibility, CharGrant } from '@/lib/charStore';
 import { GrantsEditor } from '@/components/chars/GrantsEditor';
+import { TplPicker, TplTabEditView, initialValues, tabsFromTpl } from '@/components/chars/TplTabs';
+import { TabRows } from '@/components/chars/TabRows';
 import { newId } from '@/lib/postStore';
 import { putBlob, getBlob, useBlobUrl } from '@/lib/blobStore';
 import { useFonts, deVarFamily } from '@/lib/fontStore';
@@ -137,14 +139,28 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
   const del = useConfirmDelete();
   const askDeleteTab = (tabId: string, after?: () => void) => {
     const t = tabs.find(x => x.id === tabId);
-    del.ask(`탭 「${t?.title || '제목 없음'}」을 삭제하시겠습니까?`, () => {
-      setTabs(l => l.filter(x => x.id !== tabId));
+    // 양식 탭은 같은 양식에서 만든 탭을 한꺼번에 지운다 (값을 공유하므로 — 캐릭터 양식, 포크)
+    const group = t?.tpl?.group;
+    const n = group ? tabs.filter(x => x.tpl?.group === group).length : 1;
+    del.ask(group && n > 1
+      ? `양식 탭 ${n}개(「${t?.title || '제목 없음'}」 외)를 삭제하시겠습니까?`
+      : `탭 「${t?.title || '제목 없음'}」을 삭제하시겠습니까?`, () => {
+      setTabs(l => l.filter(x => (group ? x.tpl?.group !== group : x.id !== tabId)));
       after?.();
     }, '탭에 작성한 내용도 함께 사라집니다. 저장(SAVE) 전까지는 CANCEL로 폼을 벗어나면 되돌릴 수 있습니다.');
   };
 
   /* ---------- 탭 전용 편집 화면 ---------- */
   const curTab = tabs.find(t => t.id === view);
+  // 양식 탭 — 묶음 전체의 칸을 한 화면에서 (캐릭터 양식, 포크)
+  if (curTab?.tpl) {
+    return <>
+      <TplTabEditView tab={curTab} tabs={tabs} setTabs={setTabs} onOpen={setView}
+        onDelete={() => askDeleteTab(curTab.id, () => setView('main'))}
+        onBack={() => setView('main')} />
+      {del.element}
+    </>;
+  }
   if (curTab) {
     return <>
       <TabEditView
@@ -257,23 +273,20 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
 
         {/* 추가 탭 — 목록만, 내용은 전용 화면에서 */}
         <label className="k-label" style={{ margin: 0 }}>추가 탭 — 내용은 [편집]을 눌러 전용 화면에서 작성</label>
-        {tabs.map(t => (
-          <div key={t.id} style={{ display: 'flex', gap: 8, alignItems: 'center', border: '1.5px solid var(--line)', borderRadius: 8, padding: '8px 10px' }}>
-            <span style={{ width: 28, height: 28, borderRadius: 8, background: '#eef0f2', display: 'grid', placeItems: 'center', fontSize: 14, flexShrink: 0 }}>{t.icon}</span>
-            <b style={{ fontSize: 13, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title || '(제목 없음)'}</b>
-            {t.subtitle && <small style={{ color: 'var(--faint)', fontSize: 10.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subtitle}</small>}
-            <small style={{ color: 'var(--faint)', fontSize: 10.5, flexShrink: 0 }}>{t.html ? `${t.html.length.toLocaleString()}자` : '비어 있음'}</small>
-            <button className="btn btn-dark" style={{ marginLeft: 'auto', height: 27, padding: '0 12px', fontSize: 11 }}
-              onClick={() => setView(t.id)}>편집 ›</button>
-            <span className="fx" onClick={() => askDeleteTab(t.id)}>✕</span>
-          </div>
-        ))}
+        {/* 탭 목록 — 손잡이로 끌어 순서 바꾸기 (포크: TabRows) */}
+        <TabRows tabs={tabs} onReorder={setTabs} onEdit={setView} onDelete={id => askDeleteTab(id)} />
         <button className="btn btn-ghost" style={addBtn}
           onClick={() => {
             const id = newId();
             setTabs(l => [...l, { id, icon: '✦', title: '', html: '' }]);
             setView(id); // 바로 전용 편집 화면으로
           }}>＋ ADD TAB</button>
+        {/* 캐릭터 양식으로 탭 추가 (포크) — 양식의 탭 수만큼 생기고 값을 공유한다 */}
+        <TplPicker worldId={worldId || initial?.worldId} onPick={tpl => {
+          const made = tabsFromTpl(tpl, initialValues(tpl, name));
+          setTabs(l => [...l, ...made]);
+          setView(made[0].id);
+        }} />
 
         {/* 회원 권한 — 역극 플레이 / 편집까지 (3차 회원-캐릭터 연결, v1.9) — AU 편집에선 base 소관.
             **관리자만** (v2.0 사용자 확정) — 편집 권한을 받은 회원이 이 화면에 들어와도

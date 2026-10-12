@@ -95,6 +95,7 @@ export const COLLECTION_OF: Record<string, string> = {
   'ohome.rels.v1': 'relations',
   'ohome.worlds.v1': 'worlds',
   'ohome.widgets.v1': 'widgets',   // 위젯 공유 (포크)
+  'ohome.ctpl.v1': 'char_templates', // 캐릭터 양식 (포크)
   'ohome.backup.v1': 'gallery',
   'ohome.road.v1': 'roadview',
   'ohome.trpg.v1': 'trpg_logs',
