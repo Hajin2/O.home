@@ -115,6 +115,13 @@ service cloud.firestore {
             && sameWorldGuard());
     }
 
+    // ── 캐릭터 양식 (읽기 누구나 · 쓰기 관리자) ──────────────────
+    // 캐릭터 화면이 양식으로 그려지므로 방문자도 읽어야 한다. 양식에는 디자인만 있고 캐릭터 내용은 없다.
+    match /char_templates/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // ── 위젯 공유 (읽기 공개범위대로 · 쓰기 관리자) ──────────────
     match /widgets/{docId} {
       allow read: if resource.data.visibility == 'public'

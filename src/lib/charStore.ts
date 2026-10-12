@@ -15,6 +15,8 @@ export interface CharTab {
   title: string;
   subtitle?: string;     // 제목 아래 작은 글씨 (선택)
   html: string;          // HTML 에디터 내용 (스크립트 불허 — 렌더 시 sanitize)
+  /** 캐릭터 양식으로 만든 탭 (포크) — 있으면 html은 저장 당시 그려 둔 사본이고, 화면은 양식으로 다시 그린다 */
+  tpl?: import('./tplRender').TabTpl;
 }
 
 export interface Character {

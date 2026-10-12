@@ -116,6 +116,7 @@ export default function WorldsPage() {
                   data-tip={sortMode ? '순서 바꾸기 끝내기' : '끌어다 놓아 순서 바꾸기'}>{sortMode ? 'DONE' : 'ORDER'}</button>
               )}
               <button className="btn btn-ghost" onClick={() => document.getElementById('world-import-in')?.click()}>IMPORT</button>
+              <button className="btn btn-ghost" onClick={() => router.push('/templates')} data-tip="캐릭터 양식 관리">TEMPLATES</button>
               <button className="btn btn-dark" onClick={() => router.push('/worlds/new')}>＋ ADD WORLD</button>
             </>
           )}

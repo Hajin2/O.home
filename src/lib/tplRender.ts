@@ -1,0 +1,214 @@
+// 캐릭터 양식 — 양식 코드 해석·검사·렌더 (화면과 무관한 순수 함수만 — 테스트하기 쉽게 따로 둔다)
+//
+// 양식 HTML 안의 표시 (머스태시 일부):
+//   {{key}}            값 (HTML 이스케이프, 줄바꿈은 <br>)
+//   {{key|blank}}      값이 비면 밑줄 빈칸
+//   {{#key}}…{{/key}}  목록·묶음이면 항목마다 반복 / 값이 있으면 한 번
+//   {{^key}}…{{/key}}  값이 비었을 때만
+//   {{.}}              목록 안에서 현재 항목
+//   {{@n}} {{@i}}      목록 안 순번 — 01·02… / 1·2…
+//   {{key.count}}      목록·묶음의 개수
+//   {{key.strong}}     상태 뱃지가 「강조」인지 (섹션 조건으로)
+// 새 파일로 따로 둔 이유: 원작/기존 홈 업데이트(Sync fork)와 충돌하지 않게.
+
+export type TplFieldType = 'text' | 'long' | 'list' | 'group' | 'badge' | 'image' | 'heading';
+
+export interface TplField {
+  key: string;            // heading이면 생략 가능
+  label: string;
+  type: TplFieldType;
+  page?: number;          // 입력 화면에서 어느 탭 아래 보일지 (0부터) — 없으면 0
+  ph?: string;            // 입력칸 안내 글
+  sub?: TplField[];       // group의 한 묶음 안 칸 (text·long·list·badge·image)
+}
+
+export interface TplPage { title: string; icon: string; html: string }
+
+/** 관리자가 붙여 넣는 「양식 코드」 */
+export interface TplCode {
+  name: string;
+  fields: TplField[];
+  pages: TplPage[];
+}
+
+export interface BadgeValue { text: string; strong: boolean }
+export type TplValue = string | string[] | BadgeValue | Record<string, unknown>[];
+export type TplValues = Record<string, TplValue>;
+
+/** 캐릭터 탭에 붙는 양식 정보 — 같은 양식에서 만든 탭들은 group이 같고 값을 똑같이 갖는다 */
+export interface TabTpl {
+  id: string;        // 양식 id
+  page: number;      // 양식의 몇 번째 탭인지
+  group: string;     // 한 번 「양식으로 추가」할 때 만든 묶음 id
+  values: TplValues;
+}
+
+const SUB_TYPES: TplFieldType[] = ['text', 'long', 'list', 'badge', 'image'];
+const TOP_TYPES: TplFieldType[] = ['text', 'long', 'list', 'group', 'badge', 'image', 'heading'];
+
+/** 양식 코드 검사 — 문제 목록을 돌려준다(비면 통과) */
+export function parseTplCode(raw: string): { code?: TplCode; errors: string[] } {
+  const errors: string[] = [];
+  let obj: unknown;
+  try { obj = JSON.parse(raw); } catch { return { errors: ['양식 코드를 읽을 수 없어요 — 받은 코드를 처음부터 끝까지 그대로 붙여 넣어 주세요'] }; }
+  const o = obj as Partial<TplCode>;
+  if (!o || typeof o !== 'object') return { errors: ['양식 코드 형식이 아니에요'] };
+  if (typeof o.name !== 'string' || !o.name.trim()) errors.push('양식 이름(name)이 없어요');
+  if (!Array.isArray(o.pages) || !o.pages.length) errors.push('탭(pages)이 하나 이상 있어야 해요');
+  if (!Array.isArray(o.fields)) errors.push('입력칸 목록(fields)이 없어요');
+  if (errors.length) return { errors };
+  const keys = new Set<string>();
+  const checkField = (f: TplField, allowed: TplFieldType[], where: string) => {
+    if (!f || typeof f !== 'object' || !allowed.includes(f.type)) { errors.push(`${where}: 알 수 없는 칸 종류 「${f?.type}」`); return; }
+    if (typeof f.label !== 'string') errors.push(`${where}: 이름(label)이 없어요`);
+    if (f.type !== 'heading' && (typeof f.key !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(f.key))) errors.push(`${where}: 키(key)는 영문·숫자·_ 만 쓸 수 있어요`);
+    if (f.type === 'group') {
+      if (!Array.isArray(f.sub) || !f.sub.length) errors.push(`${where}: 묶음(group)에는 sub 칸이 필요해요`);
+      else f.sub.forEach((s, j) => checkField(s, SUB_TYPES, `${where} › ${j + 1}번째 칸`));
+    }
+  };
+  o.fields!.forEach((f, i) => {
+    checkField(f, TOP_TYPES, `${i + 1}번째 칸`);
+    if (f?.type !== 'heading' && f?.key) {
+      if (keys.has(f.key)) errors.push(`키 「${f.key}」가 두 번 쓰였어요`);
+      keys.add(f.key);
+    }
+  });
+  o.pages!.forEach((p, i) => {
+    if (!p || typeof p.html !== 'string') errors.push(`${i + 1}번째 탭에 html이 없어요`);
+    else {
+      try { compile(p.html); } catch (e) { errors.push(`${i + 1}번째 탭: ${(e as Error).message}`); }
+    }
+  });
+  if (errors.length) return { errors };
+  return {
+    code: {
+      name: o.name!.trim(),
+      fields: o.fields!,
+      pages: o.pages!.map(p => ({ title: String(p.title ?? ''), icon: String(p.icon || '✦').slice(0, 2), html: p.html })),
+    },
+    errors,
+  };
+}
+
+/* ---------- 렌더 ---------- */
+
+type Node =
+  | { t: 'text'; s: string }
+  | { t: 'var'; name: string; filter?: string }
+  | { t: 'sec'; name: string; inv: boolean; kids: Node[] };
+
+const TAG = /\{\{\s*([#^/]?)\s*([^{}|]+?)\s*(?:\|\s*([a-z]+)\s*)?\}\}/g;
+const cache = new Map<string, Node[]>();
+
+function compile(src: string): Node[] {
+  const hit = cache.get(src);
+  if (hit) return hit;
+  const root: Node[] = [];
+  const stack: { name: string; kids: Node[] }[] = [{ name: '', kids: root }];
+  let last = 0;
+  let m: RegExpExecArray | null;
+  TAG.lastIndex = 0;
+  while ((m = TAG.exec(src))) {
+    const top = stack[stack.length - 1];
+    if (m.index > last) top.kids.push({ t: 'text', s: src.slice(last, m.index) });
+    last = TAG.lastIndex;
+    const [, op, name, filter] = m;
+    if (op === '#' || op === '^') {
+      const sec: Node = { t: 'sec', name, inv: op === '^', kids: [] };
+      top.kids.push(sec);
+      stack.push({ name, kids: sec.kids });
+    } else if (op === '/') {
+      if (stack.length < 2 || top.name !== name) throw new Error(`{{/${name}}} 짝이 맞지 않아요`);
+      stack.pop();
+    } else top.kids.push({ t: 'var', name, filter });
+  }
+  if (stack.length > 1) throw new Error(`{{#${stack[stack.length - 1].name}}} 가 닫히지 않았어요`);
+  if (last < src.length) root.push({ t: 'text', s: src.slice(last) });
+  cache.set(src, root);
+  return root;
+}
+
+interface Ctx { v: unknown; i?: number }
+
+function esc(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function lookup(stack: Ctx[], name: string): unknown {
+  if (name === '.') return stack[stack.length - 1].v;
+  if (name === '@n' || name === '@i') {
+    for (let k = stack.length - 1; k >= 0; k--) {
+      const i = stack[k].i;
+      if (i !== undefined) return name === '@n' ? String(i + 1).padStart(2, '0') : String(i + 1);
+    }
+    return '';
+  }
+  const [head, ...rest] = name.split('.');
+  let cur: unknown;
+  for (let k = stack.length - 1; k >= 0; k--) {
+    const v = stack[k].v;
+    if (v && typeof v === 'object' && !Array.isArray(v) && head in (v as object)) { cur = (v as Record<string, unknown>)[head]; break; }
+  }
+  for (const p of rest) {
+    if (p === 'count' && Array.isArray(cur)) { cur = cur.filter(filled).length; continue; }
+    cur = cur && typeof cur === 'object' ? (cur as Record<string, unknown>)[p] : undefined;
+  }
+  return cur;
+}
+
+/** 값이 채워져 있는가 — 빈 글·빈 목록·빈 뱃지는 비어 있음 */
+export function filled(v: unknown): boolean {
+  if (v == null || v === false) return false;
+  if (typeof v === 'string') return v.trim() !== '';
+  if (typeof v === 'number') return v !== 0;
+  if (Array.isArray(v)) return v.some(filled);
+  if (typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    if ('text' in o && 'strong' in o) return filled(o.text);
+    return Object.values(o).some(filled);
+  }
+  return true;
+}
+
+function textOf(v: unknown): string {
+  if (v == null || v === false) return '';
+  if (typeof v === 'object' && !Array.isArray(v) && 'text' in (v as object)) return String((v as BadgeValue).text ?? '');
+  if (Array.isArray(v)) return v.filter(filled).map(textOf).join(', ');
+  return String(v);
+}
+
+export const BLANK = '<span style="display:inline-block;min-width:4em;border-bottom:1px solid var(--line, rgba(0,0,0,.14));height:1.1em;vertical-align:-2px"></span>';
+
+function run(nodes: Node[], stack: Ctx[]): string {
+  let out = '';
+  for (const n of nodes) {
+    if (n.t === 'text') out += n.s;
+    else if (n.t === 'var') {
+      const s = textOf(lookup(stack, n.name)).trim();
+      out += s ? esc(s).replace(/\r?\n/g, '<br>') : (n.filter === 'blank' ? BLANK : '');
+    } else {
+      const v = lookup(stack, n.name);
+      const has = filled(v);
+      if (n.inv) { if (!has) out += run(n.kids, stack); continue; }
+      if (!has) continue;
+      if (Array.isArray(v)) {
+        v.filter(filled).forEach((item, i) => { out += run(n.kids, [...stack, { v: item, i }]); });
+      } else out += run(n.kids, [...stack, { v }]);
+    }
+  }
+  return out;
+}
+
+/** 양식 탭 HTML + 값 → 완성 HTML (화면에 넣기 전 sanitize는 부르는 쪽에서) */
+export function renderTpl(html: string, values: TplValues): string {
+  try { return run(compile(html), [{ v: values }]); } catch { return ''; }
+}
+
+/** 칸 종류별 빈 값 */
+export function emptyOf(f: TplField): TplValue {
+  if (f.type === 'list') return [];
+  if (f.type === 'group') return [];
+  if (f.type === 'badge') return { text: '', strong: false };
+  return '';
+}
