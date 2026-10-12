@@ -125,6 +125,11 @@ export async function createSupabaseBackend(
       return { ok: true };
     },
 
+    async authToken() {
+      const { data } = await sb.auth.getSession();
+      return data.session?.access_token ?? null;
+    },
+
     // Supabase는 스키마의 트리거가 첫 가입자를 관리자로 만들어 준다 — 추가 작업 없음
     async claimOwner() { return { ok: true }; },
 
