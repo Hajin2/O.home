@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/Toast';
 import { parseTags } from '@/lib/tagUtil';
 import { TagList } from '@/components/ui/TagList';
 import { LogNav } from '@/components/trpg/LogNav';
+import { useTextProtectActive, TEXT_PROTECT_IFRAME } from '@/lib/textProtect';
 import { syncList, TABLE_OF } from '@/lib/db';
 import { isServerMode } from '@/lib/backend';
 import { currentUserId } from '@/lib/currentUser';
@@ -60,6 +61,7 @@ export default function TrpgDetailPage() {
   const [delAsk, setDelAsk] = useState(false);
   const [bodyText, setBodyText] = useState<string | null>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const txtProtect = useTextProtectActive();   // 글 복사 방지 — 로그 상자 안에도 넣는다 (포크)
   const deletedRef = useRef(false);     // 삭제 중이면 「로그가 없다」 판정으로 홈에 보내지 않는다 (포크 수정)
   const gotHeightRef = useRef(false);   // 안쪽에서 높이 보고가 왔는지 (안 오면 기본 높이로 되돌린다)
 
@@ -338,7 +340,7 @@ r(1);})();
 </scr${''}ipt><style>
 /* height:auto — 로그 문서가 html/body에 100%를 걸어 두면 내용과 무관하게 뷰포트만큼 커진다 */
 html,body{margin:0!important;padding:0!important;height:auto!important;min-height:0!important}
-</style>`;
+</style>` + (txtProtect ? TEXT_PROTECT_IFRAME : '');
   /** 주입 위치 — <!DOCTYPE ...> 가 있으면 그 **바로 뒤**에, 없으면 doctype을 만들어 앞에.
    *  표준 모드를 지켜야 body 높이가 진짜 내용 높이가 된다 (위 주석 참조) */
   const dt = /^\s*<!doctype[^>]*>/i.exec(body);

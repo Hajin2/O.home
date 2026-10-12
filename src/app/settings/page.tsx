@@ -60,6 +60,7 @@ import { migrateTo, findOrphanFiles } from '@/lib/transfer';
 import { FIRESTORE_RULES, STORAGE_RULES } from '@/lib/firebaseRules';
 import { SCHEMA_SQL } from '@/lib/schemaSql';
 import { TagPane } from '@/components/settings/TagPane';
+import { TextProtectOptions } from '@/lib/textProtect';
 
 const CATEGORIES = [
   '디자인', '메인 페이지', '위젯', '메뉴 관리', '게시판 관리', '자관 질문', '커미션', 'TRPG', '감상타래', '메모장',
@@ -2449,6 +2450,8 @@ function MenuPane() {
               ))}
             </div>
           </div>
+          {/* 글 복사 방지 (포크) — 위 이미지 저장 방지와 같은 방식 */}
+          <TextProtectOptions />
         </div>
       ) : (
       <>

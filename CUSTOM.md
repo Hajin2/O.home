@@ -320,3 +320,23 @@ AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **�
 | `components/rels/RelNav.tsx` (새 파일) | 이동 버튼 |
 | `app/rels/[id]/page.tsx` | import 1줄 + 맨 아래 `{del.element}` 앞에 `<RelNav rels={rels} cur={rel} />` 1줄 |
 
+## 24. 이미지 저장 방지 — 아이폰 길게 누르기 막기
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `app/globals.css` | **맨 끝**에 `.img-protect-on img{-webkit-touch-callout:none;-webkit-user-select:none}` 한 줄(+주석). 원작은 우클릭(contextmenu)·끌기만 막아, 그 신호가 없는 아이폰 사파리의 「길게 눌러 저장」이 뚫려 있었음. 관리자 제외는 그대로 |
+
+## 25. 글 복사 방지 (영역별, 로그 본문 포함)
+
+환경설정 → 메뉴 관리(권한) 「이미지 저장 방지」 바로 아래 **「글 복사 방지」** 체크 칸 — 로그 백업 · 게시판(갤러리·로드비 포함) · 자캐 · 자관 · 세계관 · TRPG 캐릭터.
+체크한 영역에서 방문자의 글 드래그 선택 · 복사(Ctrl+C·우클릭 복사) · 잘라내기 · 전체 선택(Ctrl+A)을 막음. 관리자 제외 · 즉시 반영. 입력칸(댓글·검색 등)은 그대로.
+로그 본문은 분리된 상자(iframe)라 상자 안에도 같은 차단을 넣음(우클릭·끌기·Ctrl+S/P도). 개발자 도구·페이지 저장·캡처는 못 막음(손쉬운 복사 방지 수준).
+설정은 메뉴 설정(`ohome.menuset.v1`) 안에 `textProtect`로 함께 저장 — 원작 `SETTING_KEYS`는 안 건드림.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `lib/textProtect.tsx` (새 파일) | 영역 목록 · `TextProtect`(차단) · `useTextProtectActive` · 로그 상자용 `TEXT_PROTECT_IFRAME` · 설정 칸 `TextProtectOptions` |
+| `app/layout.tsx` | import 1줄 + `<ImgProtect />` 아래 `<TextProtect />` 1줄 |
+| `app/settings/page.tsx` | import 1줄 + 이미지 저장 방지 블록 바로 뒤 `<TextProtectOptions />` 1줄(+주석) |
+| `app/trpg/[id]/page.tsx` | import 1줄, `const txtProtect = useTextProtectActive();` 1줄, 로그 주입(inject) 끝에 `+ (txtProtect ? TEXT_PROTECT_IFRAME : '')` |
+
