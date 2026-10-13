@@ -374,3 +374,19 @@ AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **�
 | `app/chars/[id]/page.tsx` | import 1줄 · 탭 HTML을 `tabHtmlOf`로 · 양식 탭은 탭 제목 줄 숨김 |
 | `components/chars/CharEditForm.tsx` | import 2줄 · 양식 탭 묶음 삭제 · 양식 탭이면 `TplTabEditView` · 탭 목록 `tabs.map(…)` 블록을 `<TabRows … />` 한 줄로 · ADD TAB 아래 `TplPicker` |
 | `app/worlds/page.tsx` (포크 파일) | TEMPLATES 버튼 1줄 |
+
+## 28. 로그 책갈피
+
+로그 상세의 떠 있는 버튼 줄 맨 위 🔖 — 읽다가 **「＋ 지금 읽는 위치에 책갈피」** → 이름 붙여 저장(기본 이름은 그 자리 대사 앞부분). 목록에서 누르면 그 자리로 이동, 「이름」·「삭제」(한 번 더 눌러 확인). 「전체」 탭에서 다른 로그의 책갈피를 누르면 그 로그를 열고 그 자리로(`?bm=` 주소).
+**각자 자기 것만**: 로그인한 사람은 자기 계정(서버 `bookmarks` 표, 공개범위 private — 관리자 화면에서도 내 것만 걸러 보임), 비로그인 방문자는 그 브라우저에만. 로그인 전에 남긴 책갈피는 「내 계정으로 옮기기」.
+위치는 px이 아니라 **로그 상자 안 몇 번째 요소 + 그 안 비율**(일반 글 로그는 몇 번째 글자)로 기억 → PC에서 저장해도 휴대폰에서 같은 대사로 감. 로그를 고쳐 번호가 밀려도 그 자리 글 앞부분으로 다시 찾음. 원본 파일 대체 표시일 때는 버튼 숨김.
+데이터 백업·안 쓰는 이미지 정리에는 들어가지 않음(TABLE_OF에 안 넣음 — 원작 파일 안 건드리려고).
+
+**Supabase**: `supabase/bookmarks.sql`을 SQL Editor에서 한 번 Run. 안 하면 로그인한 사람도 브라우저에만 저장되고 「서버 준비 전」이라고 표시됨.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `components/trpg/LogBookmarks.tsx` (새 파일) | 책갈피 저장소(계정/브라우저) · 위치 재기·이동 · 버튼과 목록 · 로그 상자에 넣는 스크립트 `LOG_BM_IFRAME` |
+| `supabase/bookmarks.sql` (새 파일) | 표 + 권한 (추가는 본인 이름으로만) |
+| `components/trpg/LogNav.tsx` (포크 파일) | `extra` 칸 — 버튼 줄 맨 위에 끼울 버튼 |
+| `app/trpg/[id]/page.tsx` | import 1줄 · 로그 주입 끝에 `+ LOG_BM_IFRAME` · `<LogNav … extra={<LogBookmarkButton … />} />` |

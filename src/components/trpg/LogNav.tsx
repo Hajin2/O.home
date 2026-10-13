@@ -13,7 +13,8 @@ const btn: React.CSSProperties = {
   boxShadow: 'var(--sh-dd, 0 4px 14px rgba(0,0,0,.16))', cursor: 'var(--cur-pointer, pointer)', padding: 0,
 };
 
-export function LogNav({ logs, cur, listHref }: { logs: TrpgLog[]; cur: TrpgLog; listHref: string }) {
+/** extra: 맨 위에 붙일 버튼 (책갈피 — LogBookmarks) */
+export function LogNav({ logs, cur, listHref, extra }: { logs: TrpgLog[]; cur: TrpgLog; listHref: string; extra?: React.ReactNode }) {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const [scrolled, setScrolled] = useState(false);
@@ -44,6 +45,7 @@ export function LogNav({ logs, cur, listHref }: { logs: TrpgLog[]; cur: TrpgLog;
 
   return (
     <div style={{ position: 'fixed', right: 22, bottom: 92, display: 'grid', gap: 8, zIndex: 30 }}>
+      {extra}
       {scrolled && <button type="button" style={btn} onClick={top} title="맨 위로" aria-label="맨 위로">↑</button>}
       <button type="button" style={{ ...btn, ...off(!!prev) }} disabled={!prev} title={prev ? `이전 로그 · ${prev.title}` : '이전 로그 없음'}
         aria-label="이전 로그" onClick={() => prev && router.push(`/trpg/${prev.id}`)}>‹</button>
