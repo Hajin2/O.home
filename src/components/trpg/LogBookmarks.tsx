@@ -54,11 +54,25 @@ function go(a){var list=L(),e=(a.i!=null&&a.i>=0)?list[a.i]:null;
 if(a.t){var s=a.t.slice(0,30);if(!e||sn(e).slice(0,30)!==s){var best=null,bd=1e9;
 for(var j=0;j<list.length;j++){var x=list[j];if(x.childElementCount>4)continue;if(sn(x).slice(0,30)===s){var d=Math.abs(j-(a.i||0));if(d<bd){bd=d;best=x;}}}
 if(best)e=best;}}
-var y;if(e){var R=e.getBoundingClientRect();y=R.top+scrollY+(a.r||0)*R.height;}else y=(a.p||0)*H();
+var y;if(e){var R=e.getBoundingClientRect();y=R.top+scrollY+(a.r||0)*R.height;flash(e);}else y=(a.p||0)*H();
 var de=document.documentElement;if(de.scrollHeight>innerHeight+4){scrollTo(0,Math.max(0,y-40));}
 return y-scrollY;}
+var PK=false,HL=null,ST=null;
+function css(){if(ST)return;ST=document.createElement('style');
+ST.textContent='.__bmhl{outline:2px solid rgba(214,158,46,.95)!important;outline-offset:2px!important;background-color:rgba(255,214,102,.16)!important;cursor:pointer!important}.__bmfl{background-color:rgba(255,214,102,.38)!important}';
+(document.head||document.documentElement).appendChild(ST);}
+function hl(e){if(HL&&HL!==e)HL.classList.remove('__bmhl');HL=e;if(e&&e.classList)e.classList.add('__bmhl');}
+function flash(e){if(!e||!e.classList)return;css();e.classList.add('__bmfl');setTimeout(function(){e.classList.remove('__bmfl');},1400);}
+function tg(ev){var e=ev.target;if(e&&e.nodeType!==1)e=e.parentElement;if(!e||e===document.body||e===document.documentElement)return null;return blk(e);}
+addEventListener('mousemove',function(ev){if(PK)hl(tg(ev));},true);
+addEventListener('mousedown',function(ev){if(PK){ev.stopPropagation();}},true);
+addEventListener('click',function(ev){if(!PK)return;ev.preventDefault();ev.stopPropagation();var e=tg(ev);if(!e)return;
+hl(null);var R=e.getBoundingClientRect();flash(e);
+parent.postMessage({__bmPick:{i:L().indexOf(e),r:0,t:sn(e),p:Math.min(1,Math.max(0,(R.top+scrollY)/H()))}},'*');},true);
+addEventListener('keydown',function(ev){if(PK&&ev.key==='Escape')parent.postMessage({__bmPickCancel:1},'*');},true);
 addEventListener('message',function(ev){if(ev.source!==parent)return;var d=ev.data;if(!d||!d.__bm)return;
-var o={__bmR:d.k};try{if(d.__bm==='at')o.a=at(+d.y||0);else if(d.__bm==='go')o.y=go(d.a||{p:0});}catch(x){o.err=1;}
+var o={__bmR:d.k};try{if(d.__bm==='at')o.a=at(+d.y||0);else if(d.__bm==='go')o.y=go(d.a||{p:0});
+else if(d.__bm==='pick'){PK=!!d.on;css();if(!PK)hl(null);}}catch(x){o.err=1;}
 parent.postMessage(o,'*');});
 })();</scr${''}ipt>`;
 
@@ -192,6 +206,20 @@ function plainTopOf(el: HTMLElement, c: number): number | null {
   } catch { return null; }
 }
 
+/** 일반 글 로그에서 좌표 아래 줄(줄바꿈 기준 한 줄) — 시작 글자 위치와 화면 상자 */
+function plainLineAt(el: HTMLElement, x: number, y: number): { s: number; rect: DOMRect } | null {
+  const hit = caretAt(x, y);
+  if (!hit || !el.contains(hit.node) || hit.node.nodeType !== Node.TEXT_NODE) return null;
+  const text = hit.node.textContent ?? '';
+  let a = hit.offset; while (a > 0 && text[a - 1] !== '\n') a--;
+  let b = hit.offset; while (b < text.length && text[b] !== '\n') b++;
+  try {
+    const r = document.createRange();
+    r.setStart(hit.node, a); r.setEnd(hit.node, Math.max(b, Math.min(text.length, a + 1)));
+    return { s: a, rect: r.getBoundingClientRect() };
+  } catch { return null; }
+}
+
 async function capture(mode: Mode, frame: HTMLIFrameElement | null): Promise<{ a: BmAnchor; snippet: string }> {
   const line = readLineY();
   if (mode === 'frame' && frame) {
@@ -274,7 +302,16 @@ const CSS = `
 .lbm-ft button{font-size:10.5px;text-decoration:underline;background:none;border:0;color:var(--ink);cursor:var(--cur-pointer,pointer);padding:0}
 .lbm-n{position:absolute;top:-3px;right:-3px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;font-size:9.5px;line-height:16px;text-align:center;
   background:var(--ink,#333);color:var(--panel-solid,#fff);font-family:var(--sans,inherit)}
-@media (max-width:560px){.lbm-pop{left:12px;right:12px;bottom:84px;width:auto;max-height:58vh}}
+.lbm-add2{display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%}
+.lbm-add2 .btn{font-size:11.5px;height:32px;padding:0 8px;white-space:nowrap}
+.lbm-pick{position:fixed;left:50%;top:70px;transform:translateX(-50%);z-index:41;display:flex;align-items:center;gap:10px;
+  padding:9px 10px 9px 16px;border-radius:999px;background:var(--dd-bg,#222);color:var(--dd-fg,#fff);font-size:12.5px;
+  box-shadow:0 10px 30px rgba(0,0,0,.3);white-space:nowrap;max-width:calc(100vw - 24px)}
+.lbm-pick button{border:0;background:rgba(255,255,255,.14);color:inherit;border-radius:999px;padding:4px 10px;font-size:11.5px;cursor:var(--cur-pointer,pointer)}
+.lbm-pick button:hover{background:rgba(255,255,255,.24)}
+.lbm-hl{position:fixed;z-index:29;pointer-events:none;border-radius:4px;outline:2px solid rgba(214,158,46,.95);background:rgba(255,214,102,.16)}
+.lbm-picking .log-plain{cursor:pointer}
+@media (max-width:560px){.lbm-pop{left:12px;right:12px;bottom:84px;width:auto;max-height:58vh}.lbm-pick{top:64px;font-size:12px}}
 `;
 
 const Icon = ({ filled }: { filled?: boolean }) => (
@@ -298,6 +335,8 @@ export function LogBookmarkButton({ log, logs, mode, frameRef }: {
   const [edit, setEdit] = useState<{ id: string; name: string } | null>(null);
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [picking, setPicking] = useState(false);          // 「줄 골라서 꽂기」 중
+  const [hlRect, setHlRect] = useState<DOMRect | null>(null);   // 일반 글 로그에서 마우스 아래 줄 강조
   const popRef = useRef<HTMLDivElement>(null);
   const autoDone = useRef(false);
 
@@ -320,6 +359,23 @@ export function LogBookmarkButton({ log, logs, mode, frameRef }: {
     const name = snippet ? snippet.slice(0, 30) : a.p <= 0.001 ? '처음' : `책갈피 ${mine.length + 1}`;
     setDraft({ a, name });
   };
+  const stopPick = useCallback(() => {
+    setPicking(false); setHlRect(null);
+    try { frameRef.current?.contentWindow?.postMessage({ __bm: 'pick', on: false, k: 'pick' }, '*'); } catch { /* 무시 */ }
+  }, [frameRef]);
+  const startPick = () => {
+    if (!mode) return;
+    setOpen(false); setDraft(null); setEdit(null); setPicking(true);
+    if (mode === 'frame') {
+      try { frameRef.current?.contentWindow?.postMessage({ __bm: 'pick', on: true, k: 'pick' }, '*'); } catch { /* 무시 */ }
+    }
+  };
+  const picked = (a: BmAnchor, snippet: string) => {
+    stopPick();
+    setDraft({ a, name: snippet ? snippet.slice(0, 30) : `책갈피 ${mine.length + 1}` });
+    setTab('here'); setOpen(true);
+  };
+
   const commitAdd = () => {
     if (!draft) return;
     const item: LogBookmark = {
@@ -371,6 +427,53 @@ export function LogBookmarkButton({ log, logs, mode, frameRef }: {
     })();
     return () => { alive = false; };
   }, [bm.loaded, bm.list, mode, log.id, frameRef]);
+
+  // 줄 골라서 꽂기 — 로그 상자에서 고른 줄을 받거나(상자 안 스크립트가 알려 줌), 일반 글 로그는 여기서 직접
+  useEffect(() => {
+    if (!picking || !mode) return;
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') stopPick(); };
+    document.addEventListener('keydown', key);
+    document.documentElement.classList.add('lbm-picking');
+    let cleanup = () => { /* */ };
+    if (mode === 'frame') {
+      const on = (e: MessageEvent) => {
+        if (e.source !== frameRef.current?.contentWindow) return;
+        const d = e.data as { __bmPick?: BmAnchor; __bmPickCancel?: number };
+        if (d?.__bmPick) picked(d.__bmPick, d.__bmPick.t ?? '');
+        else if (d?.__bmPickCancel) stopPick();
+      };
+      window.addEventListener('message', on);
+      cleanup = () => window.removeEventListener('message', on);
+    } else {
+      const el = document.querySelector<HTMLElement>('.log-plain');
+      if (el) {
+        const move = (e: MouseEvent) => { const hit = plainLineAt(el, e.clientX, e.clientY); setHlRect(hit ? hit.rect : null); };
+        const leave = () => setHlRect(null);
+        const click = (e: MouseEvent) => {
+          const hit = plainLineAt(el, e.clientX, e.clientY);
+          if (!hit) return;
+          e.preventDefault();
+          const r = el.getBoundingClientRect();
+          const text = el.textContent ?? '';
+          picked({ c: hit.s, p: Math.min(1, Math.max(0, (hit.rect.top - r.top) / Math.max(1, r.height))) },
+            text.slice(hit.s, hit.s + 60).replace(/\s+/g, ' ').trim());
+        };
+        const scroll = () => setHlRect(null);
+        el.addEventListener('mousemove', move);
+        el.addEventListener('mouseleave', leave);
+        el.addEventListener('click', click);
+        mainEl()?.addEventListener('scroll', scroll, { passive: true });
+        cleanup = () => {
+          el.removeEventListener('mousemove', move); el.removeEventListener('mouseleave', leave);
+          el.removeEventListener('click', click); mainEl()?.removeEventListener('scroll', scroll);
+        };
+      }
+    }
+    return () => { document.removeEventListener('keydown', key); document.documentElement.classList.remove('lbm-picking'); cleanup(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picking, mode]);
+  // 다른 화면으로 나가면 고르기 끄기
+  useEffect(() => () => { try { frameRef.current?.contentWindow?.postMessage({ __bm: 'pick', on: false, k: 'pick' }, '*'); } catch { /* 무시 */ } }, [frameRef]);
 
   // 바깥을 누르면 닫기 · Esc
   useEffect(() => {
@@ -430,10 +533,24 @@ export function LogBookmarkButton({ log, logs, mode, frameRef }: {
     <>
       <style>{CSS}</style>
       <button type="button" style={fab} data-lbm-fab aria-expanded={open} title="책갈피" aria-label="책갈피"
-        onClick={() => { setOpen(o => !o); setDraft(null); setEdit(null); }}>
+        onClick={() => { if (picking) stopPick(); setOpen(o => !o); setDraft(null); setEdit(null); }}>
         <Icon filled={mine.length > 0} />
         {mine.length > 0 && <span className="lbm-n">{mine.length}</span>}
       </button>
+      {picking && (
+        <div className="lbm-pick" role="status">
+          <span>책갈피를 꽂을 줄을 누르세요</span>
+          <button type="button" onClick={stopPick}>취소 (Esc)</button>
+        </div>
+      )}
+      {picking && hlRect && (() => {
+        const el = document.querySelector<HTMLElement>('.log-plain');
+        const box = el?.getBoundingClientRect();
+        return <div className="lbm-hl" style={{
+          left: (box?.left ?? hlRect.left) - 6, width: (box?.width ?? hlRect.width) + 12,
+          top: hlRect.top - 2, height: hlRect.height + 4,
+        }} />;
+      })()}
       {open && (
         <div ref={popRef} className="lbm-pop" role="dialog" aria-label="책갈피">
           <div className="lbm-hd">
@@ -455,9 +572,12 @@ export function LogBookmarkButton({ log, logs, mode, frameRef }: {
                   <button type="button" className="btn btn-ghost" onClick={() => setDraft(null)}>취소</button>
                 </>
               ) : (
-                <button type="button" className="btn btn-dark" style={{ width: '100%' }} onClick={() => void startAdd()} disabled={!bm.loaded}>
-                  ＋ 지금 읽는 위치에 책갈피
-                </button>
+                <div className="lbm-add2">
+                  <button type="button" className="btn btn-dark" onClick={() => void startAdd()} disabled={!bm.loaded}
+                    title="화면 위쪽, 지금 읽고 있는 줄에 꽂아요">＋ 지금 읽는 위치</button>
+                  <button type="button" className="btn btn-ghost" onClick={startPick} disabled={!bm.loaded}
+                    title="로그에서 원하는 줄을 눌러 꽂아요">줄 골라서 꽂기</button>
+                </div>
               )}
             </div>
           )}
@@ -465,7 +585,7 @@ export function LogBookmarkButton({ log, logs, mode, frameRef }: {
             {!bm.loaded && <div className="lbm-empty">불러오는 중…</div>}
             {bm.loaded && tab === 'here' && (mine.length
               ? mine.map(b => row(b))
-              : <div className="lbm-empty">아직 책갈피가 없어요.<br />읽다가 위 버튼을 누르면 그 자리가 저장돼요.</div>)}
+              : <div className="lbm-empty">아직 책갈피가 없어요.<br />읽던 자리에 바로 꽂거나, 원하는 줄을 골라 꽂을 수 있어요.</div>)}
             {bm.loaded && tab === 'all' && (others.length
               ? others.map(g => (
                 <div key={g.id}>
