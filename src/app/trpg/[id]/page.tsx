@@ -19,6 +19,7 @@ import { useToast } from '@/components/ui/Toast';
 import { parseTags } from '@/lib/tagUtil';
 import { TagList } from '@/components/ui/TagList';
 import { LogNav } from '@/components/trpg/LogNav';
+import { LogBookmarkButton, LOG_BM_IFRAME } from '@/components/trpg/LogBookmarks';
 import { useTextProtectActive, TEXT_PROTECT_IFRAME } from '@/lib/textProtect';
 import { syncList, TABLE_OF } from '@/lib/db';
 import { isServerMode } from '@/lib/backend';
@@ -340,7 +341,7 @@ r(1);})();
 </scr${''}ipt><style>
 /* height:auto — 로그 문서가 html/body에 100%를 걸어 두면 내용과 무관하게 뷰포트만큼 커진다 */
 html,body{margin:0!important;padding:0!important;height:auto!important;min-height:0!important}
-</style>` + (txtProtect ? TEXT_PROTECT_IFRAME : '');
+</style>` + LOG_BM_IFRAME + (txtProtect ? TEXT_PROTECT_IFRAME : '');
   /** 주입 위치 — <!DOCTYPE ...> 가 있으면 그 **바로 뒤**에, 없으면 doctype을 만들어 앞에.
    *  표준 모드를 지켜야 body 높이가 진짜 내용 높이가 된다 (위 주석 참조) */
   const dt = /^\s*<!doctype[^>]*>/i.exec(body);
@@ -629,7 +630,8 @@ html,body{margin:0!important;padding:0!important;height:auto!important;min-heigh
           } },
           { label: 'CANCEL', kind: 'ghost', onClick: () => setDelAsk(false) },
         ]} />
-      <LogNav logs={logs} cur={l} listHref={tt.href} />
+      <LogNav logs={logs} cur={l} listHref={tt.href}
+        extra={<LogBookmarkButton log={l} logs={logs} mode={html ? 'frame' : body ? 'plain' : null} frameRef={frameRef} />} />
     </section>
   );
 }
