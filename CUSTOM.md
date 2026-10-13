@@ -390,3 +390,9 @@ AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **�
 | `supabase/bookmarks.sql` (새 파일) | 표 + 권한 (추가는 본인 이름으로만) |
 | `components/trpg/LogNav.tsx` (포크 파일) | `extra` 칸 — 버튼 줄 맨 위에 끼울 버튼 |
 | `app/trpg/[id]/page.tsx` | import 1줄 · 로그 주입 끝에 `+ LOG_BM_IFRAME` · `<LogNav … extra={<LogBookmarkButton … />} />` |
+
+## 29. 역극 캐릭터 선택 · BGM 목록 스크롤
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `app/globals.css` | **맨 끝**에 몇 줄(+주석). 역극 「발화 캐릭터 선택」(`.rp-pick-pop`)과 BGM 목록(`.bgm-list`)에 높이 제한이 없어, 항목이 많으면 위쪽이 잘린 채 스크롤이 안 됐음(역극은 채팅 창이 넘침을 잘라냄) → 최대 높이 + 안에서 스크롤. BGM 목록은 배경이 반투명이라 뒤 패널이 비쳐 보이던 것도 같은 색을 겹쳐 거의 불투명하게 |
