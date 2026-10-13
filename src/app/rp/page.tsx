@@ -62,6 +62,9 @@ export default function RpPage() {
     : []), [rooms, user, msgRows, rels, chars]);
   const myRooms = useMemo(() => allMine.filter(r => fStatus === 'all' || r.status === fStatus), [allMine, fStatus]);
   const sel = myRooms.find(r => r.id === selId) ?? myRooms[0];
+  // 처음 열린 방(목록 맨 위)을 고정해 둔다 (포크, 사용자 제보 — 말을 보내면 목록 순서가 바뀌면서
+  // 「맨 위 방」이 다른 방으로 바뀌어, 고른 발화자가 리셋되고 방이 넘어가 보일 수 있었다)
+  useEffect(() => { if (!selId && sel) setSelId(sel.id); }, [selId, sel]);
   const cntS = (s: 'all' | 'ongoing' | 'done') =>
     allMine.filter(r => s === 'all' || r.status === s).length;
 
@@ -99,6 +102,9 @@ export default function RpPage() {
     if (!sel) return null;
     const ms = messagesFor(msgRows, sel.id, sel.messages).filter(m => m.kind === 'char' && m.charId);
     if (new Set(ms.map(m => m.authorId)).size > 1) return null;   // 여러 사람이 말했으면 친 사람 기준
+    // 캐릭터 하나로만 말했으면 나눌 게 없다 — 친 사람 기준(내 말은 오른쪽)으로 (포크, 사용자 제보:
+    // 혼자 한 캐릭터로 친 말이 왼쪽에 붙었다)
+    if (new Set(ms.map(m => m.charId)).size < 2) return null;
     const order: string[] = [];
     if (rel) {
       const ids = rel.members.map(m => m.charId);
@@ -112,7 +118,26 @@ export default function RpPage() {
 
   const [speaker, setSpeaker] = useState<string>('');   // charId | 'desc' (플레이어 발화는 없앴다, v2.0)
   const [pickOpen, setPickOpen] = useState(false);
-  useEffect(() => { setSpeaker(speakChars[0]?.id ?? 'desc'); setPickOpen(false); }, [sel?.id, speakChars]);
+  /* 고른 발화자는 방을 바꿀 때만 처음으로 되돌린다 (포크, 사용자 제보 — 「한 번 보내면 선택이 리셋된다」).
+     예전엔 캐릭터 목록이 바뀔 때마다 첫 캐릭터로 돌렸는데, 말을 보낼 때마다 서버에서 목록을 다시 받아
+     (내용은 같아도) 새 목록이 되니 매번 리셋됐다. 이제는 방이 바뀌었거나, 고른 캐릭터가 목록에서
+     빠졌을 때만 바꾼다. 방마다 마지막으로 고른 발화자를 기억해 두었다가 돌아오면 그대로 이어 쓴다. */
+  const lastSpeaker = useRef<Record<string, string>>({});
+  const prevRoom = useRef<string | undefined>(undefined);
+  const speakKey = speakChars.map(c => c.id).join(',');
+  useEffect(() => {
+    const ids = speakKey ? speakKey.split(',') : [];
+    const ok = (x?: string) => !!x && (x === 'desc' || ids.includes(x));
+    const roomChanged = prevRoom.current !== sel?.id;
+    prevRoom.current = sel?.id;
+    const remembered = sel ? lastSpeaker.current[sel.id] : undefined;
+    setSpeaker(cur => (roomChanged
+      ? (ok(remembered) ? remembered! : ids[0] ?? 'desc')          // 방을 바꿨으면 그 방에서 마지막으로 고른 것
+      : (ok(cur) ? cur : ids[0] ?? 'desc')));                      // 같은 방이면 고른 것 그대로 (빠졌을 때만 바꿈)
+    if (roomChanged) setPickOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sel?.id, speakKey]);
+  useEffect(() => { if (sel && speaker) lastSpeaker.current[sel.id] = speaker; }, [sel, speaker]);
 
   // 입장 시 읽음 처리 (N 뱃지 해제) — 브라우저에만 기록한다 (v2.0).
   // 예전엔 방 문서의 lastRead에 써서, 방을 열어 보기만 해도 남의 방을 UPDATE 하게 되어
@@ -471,15 +496,16 @@ ${rows}
                     <small>{speakerLabel} ▾</small>
                     {pickOpen && (
                       <div className="rp-pick-pop" onClick={e => e.stopPropagation()}>
+                        {/* 지문은 맨 위에 — 캐릭터가 많으면 맨 아래까지 내려가야 해서 찾기 힘들었다 (포크, 사용자 제보) */}
+                        <button onClick={() => { setSpeaker('desc'); setPickOpen(false); }}>
+                          <span className="f" style={{ display: 'grid', placeItems: 'center', color: 'var(--sub)' }}>❝</span>
+                          지문 (DESC)
+                        </button>
                         {speakChars.map(c => (
                           <button key={c.id} onClick={() => { setSpeaker(c.id); setPickOpen(false); }}>
                             <Face ch={c} className="f" />{c.name}
                           </button>
                         ))}
-                        <button onClick={() => { setSpeaker('desc'); setPickOpen(false); }}>
-                          <span className="f" style={{ display: 'grid', placeItems: 'center', color: 'var(--sub)' }}>❝</span>
-                          지문 (DESC)
-                        </button>
                       </div>
                     )}
                   </div>
