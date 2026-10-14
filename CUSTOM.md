@@ -457,3 +457,15 @@ Supabase 무료 요금제 전송량(egress)을 아끼려고. 화면에 보이는
 | `lib/db.ts` | import 1줄 · `syncList` 안 저장 앞뒤로 `invalidateList(coll)` |
 | `lib/postStore.ts` | import 1줄 · `useLocalList` 첫 상태를 기억에서 · `fetchList` → `cachedList(...)` · 실시간 알림 시 `load(true)` |
 | `lib/rawList.ts` (포크 파일) | import 1줄 · `fetchList` → `cachedList(...)` |
+
+## 33. 관계도 확대 시 흐림 수정 · 이미지 해독을 화면 멈춤 없이
+
+**관계도 흐림** — 31번에서 끌기를 빠르게 하려고 지도 전체에 `will-change:transform`을 늘 걸어 두었더니, 브라우저가 처음 배율로 그린 그림을 늘려 쓰느라 확대하면 흐려졌다(호버한 별만 애니메이션 동안 잠깐 또렷). 이제 화면을 옮기거나 확대·축소하는 동안에만 켜고, 멈추고 0.4초 뒤 풀어서 지금 배율로 다시 또렷하게 그린다. 끄는 속도는 그대로.
+
+**이미지 해독** — 사이트 이미지 대부분(썸네일·크롭 이미지)에 `decoding="async"`를 붙여, 큰 이미지를 푸는 동안 화면이 멈추지 않게 함. 테스트(6MB 사진 24장): 캐릭터 목록 첫 이동 때 0.5초 멈춤 → 없음.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `components/rels/RelMap.tsx` (포크 파일) | `moving` 상태 · `.relmap-stage.moving`에만 will-change |
+| `lib/blobStore.tsx` | `BlobImg`의 `<img>`에 `decoding="async"` 1곳 |
+| `components/ui/CropEditor.tsx` | 크롭 이미지 `<img>`에 `decoding="async"` 1곳 |

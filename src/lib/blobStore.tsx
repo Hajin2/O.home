@@ -233,7 +233,7 @@ export function BlobImg({ fileRef, ph, alt, style, imgStyle, label }: {
   const url = useBlobUrl(fileRef);
   if (url) {
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={url} alt={alt ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover', ...imgStyle }} />;
+    return <img src={url} alt={alt ?? ''} decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', ...imgStyle }} />;
   }
   return <div className={`ph ${ph ?? ''}`} style={{ width: '100%', height: '100%', ...style }}>{label && <span>{label}</span>}</div>;
 }

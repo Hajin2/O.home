@@ -183,6 +183,16 @@ export function RelMap() {
   const [view, setView] = useState({ x: 0, y: 0, s: 1 });
   const [glide, setGlide] = useState(false);   // 자동으로 옮길 때만 부드럽게 (손으로 끌 때는 바로 따라오게)
   const glideOnce = () => { setGlide(true); setTimeout(() => setGlide(false), 320); };
+  // 움직이는 동안만 「한 장 그림」으로 옮기고(will-change), 멈추면 풀어서 지금 배율로 다시 또렷하게 그린다.
+  // 늘 켜 두면 브라우저가 처음 배율로 그린 그림을 늘려 쓰느라 확대했을 때 흐려진다 (호버한 별만 잠깐 또렷해지던 원인).
+  const [moving, setMoving] = useState(false);
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) { firstView.current = false; return; }
+    setMoving(true);
+    const t = setTimeout(() => setMoving(false), 400);
+    return () => clearTimeout(t);
+  }, [view]);
   const fit = useCallback(() => {
     const el = boxRef.current;
     if (!el || !graph.nodes.length) return;
@@ -391,7 +401,7 @@ export function RelMap() {
       <div ref={boxRef} className="relmap" onPointerDown={e => onDown(e)} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={() => { dragRef.current = null; }}>
         {loading && <div className="relmap-empty">불러오는 중…</div>}
         {!loading && graph.nodes.length === 0 && <div className="relmap-empty">자관에 캐릭터를 두 명 이상 넣으면 여기에 이어져요</div>}
-        <div className={`relmap-stage${glide ? ' glide' : ''}`} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}>
+        <div className={`relmap-stage${glide ? ' glide' : ''}${moving || glide ? ' moving' : ''}`} style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})` }}>
           {layer}
         </div>
 
@@ -489,7 +499,8 @@ const CSS = `
   background-size:260px 230px,310px 270px,370px 290px,230px 330px,290px 250px,410px 350px,330px 390px,270px 300px,100% 100%;
   box-shadow:inset 0 0 0 1px rgba(239,231,210,.08),0 18px 40px rgba(0,0,0,.28)}
 .relmap:active{cursor:grabbing}
-.relmap-stage{position:absolute;left:0;top:0;transform-origin:0 0;will-change:transform}
+.relmap-stage{position:absolute;left:0;top:0;transform-origin:0 0}
+.relmap-stage.moving{will-change:transform}
 .relmap-stage.glide{transition:transform .3s ease}
 .relmap-svg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
 .relmap-chart circle,.relmap-chart line{fill:none;stroke:rgba(199,207,224,.09);stroke-width:1;vector-effect:non-scaling-stroke}
