@@ -440,3 +440,20 @@ Supabase 무료 요금제 전송량(egress)을 아끼려고. 화면에 보이는
 | `lib/mainStore.tsx` | `WidgetType`에 `'notice'` · `WIDGET_META`에 notice 1줄 |
 | `app/page.tsx` | `ADDABLE`·`EDITABLE`에 `'notice'` |
 | `components/main/widgets.tsx` | import 1줄 · `case 'notice'` 1줄 |
+
+## 32. 최적화 — 같은 표 중복 요청 합치기 · 30초 기억
+
+원작은 목록 화면이 열릴 때마다 필요한 표(캐릭터·로그·자관 등)를 서버에서 통째로 다시 받았다. 메인처럼 위젯 여러 개가 같은 표를 쓰면 같은 표를 두세 번 받고, 페이지를 오갈 때마다 같은 표를 또 받아 Supabase 전송량을 크게 먹었다.
+
+- **중복 합치기** — 같은 표를 동시에 여러 곳에서 부르면 한 번만 받아 나눠 씀
+- **30초 기억** — 받은 표를 30초 동안 기억해, 그 안에 다른 페이지로 가도 다시 받지 않고 바로 보여 줌 (화면이 바로 뜨는 효과도)
+- **늘 최신 유지** — 이 브라우저에서 글을 쓰기·고치기·지우기하면 그 표의 기억을 바로 버림 · 다른 사람이 바꾼 건 기존 실시간 알림이 오면 기억을 무시하고 새로 받음 · 계정마다 따로 기억(로그인/로그아웃하면 섞이지 않음)
+- 한계: 실시간 알림이 닿지 않는 경우 다른 사람의 변경이 최대 30초 늦게 보일 수 있음 → 새로고침하면 바로 반영
+- 측정(테스트 데이터): 메인 첫 방문 요청 13 → 11(중복 0) · 캐릭터→캐릭터 상세→자관→관계도→자관 상세→로그→로그 상세→세계관→역극 차례로 이동 시 새로 받은 양 약 8.6MB → 약 1.1MB
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `lib/listCache.ts` (새 파일) | `cachedList`(중복 합치기·30초 기억) · `peekList` · `invalidateList` |
+| `lib/db.ts` | import 1줄 · `syncList` 안 저장 앞뒤로 `invalidateList(coll)` |
+| `lib/postStore.ts` | import 1줄 · `useLocalList` 첫 상태를 기억에서 · `fetchList` → `cachedList(...)` · 실시간 알림 시 `load(true)` |
+| `lib/rawList.ts` (포크 파일) | import 1줄 · `fetchList` → `cachedList(...)` |

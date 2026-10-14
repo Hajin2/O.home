@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TABLE_OF, fetchList, syncList } from './db';
 import { isServerMode } from './supabase';
 import { currentUserId } from './currentUser';
+import { cachedList } from './listCache';   // 같은 표 중복 요청 합치기 + 30초 기억 (포크 최적화)
 
 export type Tagged = { id: string; tags?: string[] };
 
@@ -26,7 +27,7 @@ export function useRawList<T extends Tagged>(key: string, seed: T[]): RawList<T>
     (async () => {
       let rows: T[] = [];
       try {
-        if (isServerMode() && TABLE_OF[key]) rows = await fetchList<T>(TABLE_OF[key]);
+        if (isServerMode() && TABLE_OF[key]) rows = await cachedList<T>(TABLE_OF[key], currentUserId(), () => fetchList<T>(TABLE_OF[key]));
         else {
           const raw = localStorage.getItem(key);
           rows = raw ? (JSON.parse(raw) as T[]) : seed;
