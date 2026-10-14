@@ -396,3 +396,23 @@ AI 채팅 플랫폼(케이브덕 · 티팟 · 기타)에서 만든 위젯을 **�
 | 파일 | 바꾼 내용 |
 |---|---|
 | `app/globals.css` | **맨 끝**에 몇 줄(+주석). 역극 「발화 캐릭터 선택」(`.rp-pick-pop`)과 BGM 목록(`.bgm-list`)에 높이 제한이 없어, 항목이 많으면 위쪽이 잘린 채 스크롤이 안 됐음(역극은 채팅 창이 넘침을 잘라냄) → 최대 높이 + 안에서 스크롤. BGM 목록은 배경이 반투명이라 뒤 패널이 비쳐 보이던 것도 같은 색을 겹쳐 거의 불투명하게 |
+
+## 30. 최적화 — 로그 본문 하나만 받기 · 업로드 이미지 자동 축소
+
+Supabase 무료 요금제 전송량(egress)을 아끼려고. 화면에 보이는 건 그대로.
+
+**로그 본문** — 원작은 로그 목록·상세를 열 때마다 본문 표(`trpg_log_bodies`)를 통째로 받았다(700KB 이하 본문은 표 안에 글 그대로 → 로그 하나 열 때 모든 로그 본문이 오감. 목업 로그 30개 기준 3.9MB). 이제 상세는 **그 로그 본문 한 행만**, 목록은 **본문을 아예 안 받고** 새 로그 추가 때 그 본문 하나만 저장. 권한(RLS·보안 규칙)은 똑같이 걸림. 서버 없는 로컬 모드는 예전 그대로. 데이터 백업·안 쓰는 이미지 정리는 예전처럼 전체를 읽음(관리자 작업).
+
+**이미지** — 직접 고른 JPG·PNG·WebP 중 1.2MB 넘는 것을 올리기 직전에 긴 변 2560px로 줄여 다시 압축(JPG→JPG, PNG·WebP→WebP로 투명 배경 유지, 사진 회전 반영). GIF·SVG·작은 이미지·줄여도 별로 안 작아지는 이미지는 그대로. 이미 올린 이미지는 안 바뀜. 환경설정 → 메뉴 관리(권한) 「업로드 이미지 자동 축소」에서 끄기 가능, **갤러리(그림 백업)는 기본으로 원본 유지**(체크하면 갤러리도 축소). 설정은 `ohome.menuset.v1` 안 `imgShrink`.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `lib/logBody.ts` (새 파일) | `useLogBody(id)` — 로그 본문 한 행만 읽기/저장 · `addLogBody` — 목록에서 새 본문 하나 저장 |
+| `lib/imageShrink.tsx` (새 파일) | `shrinkImage` · 설정 칸 `ImageShrinkOptions` |
+| `lib/backend/types.ts` | `fetchById?` 선택 메서드 1줄(+주석) |
+| `lib/backend/supabaseBackend.ts` | `fetchById` 추가 (syncList 바로 위) |
+| `lib/backend/firebaseBackend.ts` | `fetchById` 추가 (syncList 바로 위, 권한 없으면 null) |
+| `lib/blobStore.tsx` | `putBlob` 안 `putBlobNew(blob)` 한 줄 → 축소 후 올리기 |
+| `app/trpg/[id]/page.tsx` | import 1줄 · 본문 `useLocalList(...trpgbody...)` → `useLogBody(id)` 1줄 |
+| `app/trpg/page.tsx` | import 1줄 · 본문 `useLocalList` 줄 삭제(주석) · `setBodies([...bodies, body])` → `addLogBody(body)` |
+| `app/settings/page.tsx` | import 1줄 + `<TextProtectOptions />` 아래 `<ImageShrinkOptions />` 1줄 |

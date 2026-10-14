@@ -155,6 +155,15 @@ export async function createSupabaseBackend(
       });
     },
 
+    // 행 하나만 (포크 추가) — 권한(RLS)은 목록과 똑같이 걸린다. 못 보면 null
+    async fetchById<T extends ListItem>(coll: string, id: string): Promise<T | null> {
+      const { data, error } = await sb.from(coll).select('id, data').eq('id', id).maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      const row = data as { id: string; data: Record<string, unknown> };
+      return { ...(row.data ?? {}), id: row.id } as T;
+    },
+
     async syncList<T extends ListItem>(coll: string, prev: T[], next: T[], uid: string | null) {
       const { inserts, updates, moves, deletes } = diffList(prev, next);
       const toRow = ({ item, sort }: { item: T; sort: number }) => {
