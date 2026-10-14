@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { useSectionParam, filterSection, sectionSetter, secStamp } from '@/lib/sectionStore';
 import { useLocalList, newId } from '@/lib/postStore';
 import { addLogBody } from '@/lib/logBody';
+import { useBookmarkIndex, LogBmBadge } from '@/components/trpg/LogBmBadge';
 import { TrpgLog, TRPG_SEED, TrpgLogBody, TRPG_BODY_SEED, bodyVisibility, decodeLogText, logNo, saveLogBody } from '@/lib/galleryStore';
 import { Relation, REL_SEED } from '@/lib/charStore';
 import { SearchBar, KInput, KTextarea, KRadio, KSelect, KDate, Pager } from '@/components/ui/Kit';
@@ -42,6 +43,7 @@ function TrpgPageInner() {
   // listHidden으로 느슨해졌는데, 본문까지 같이 있으면 그 질의로 본문도 함께 새어 나간다
   // 본문은 목록에서 읽지 않는다 — 추가할 때 그 본문 하나만 저장 (포크 최적화: lib/logBody)
   const [rels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
+  const bmIdx = useBookmarkIndex();   // 내 책갈피 — 카드에 🔖 표시 (포크)
   const { editOn } = useMainStore();          // 편집모드 — 상단바 토글 (다른 목록과 공통)
   const [filter, setFilter] = useState<string>('all');
   const [tagFilter, toggleTag, clearTags, tagMode, toggleMode] = useTagFilter();
@@ -256,6 +258,7 @@ function TrpgPageInner() {
         {l.thumbId && <CroppedBlobImg fileRef={l.thumbId} crop={l.thumbCrop} />}
         <span className="no">{l.noText ? `ADMIT ONE · ${l.noText}` : `ADMIT ONE · LOG ${String(l.no).padStart(3, '0')}`}</span>
         {!l.thumbId && !l.thumbColor && <span>WIDE THUMBNAIL</span>}
+        <LogBmBadge logId={l.id} items={bmIdx.get(l.id)} />
       </div>
       <div className="stub">
         <div className="sc-title" style={l.serifTitle ? { fontFamily: 'var(--serif)', letterSpacing: '.12em' } : undefined}>
@@ -312,6 +315,7 @@ function TrpgPageInner() {
                     {editOn && <span className="drag-h">⠿</span>}
                     <div className={`th ${!l.thumbId && !l.thumbColor ? `ph ${l.ph}` : ''}`} style={{ ...thumbStyle(l), position: 'relative' }}>
                       {l.thumbId && <CroppedBlobImg fileRef={l.thumbId} crop={l.thumbCrop} />}
+                      <LogBmBadge logId={l.id} items={bmIdx.get(l.id)} small />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <b>{l.title}</b>

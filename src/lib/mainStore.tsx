@@ -11,7 +11,8 @@ export type WidgetType =
   | 'banner' | 'member'                 // 고정 요소 (삭제 불가)
   | 'menu' | 'memo' | 'diary' | 'latest'
   | 'dday' | 'todo' | 'upcoming' | 'freetext' | 'deco' | 'memoboard'
-  | 'apply' | 'recent';   // 'image'는 deco(장식 이미지+링크)로 일원화 (v1.9) · apply = 커미션 신청자 (v2.0)
+  | 'apply' | 'recent'
+  | 'notice';   // notice = 게시판 글 공지란 (포크 — components/main/NoticeWidget)   // 'image'는 deco(장식 이미지+링크)로 일원화 (v1.9) · apply = 커미션 신청자 (v2.0)
 
 export interface WidgetConf {
   id: string;
@@ -55,6 +56,7 @@ export const WIDGET_META: Record<WidgetType, { title: string; desc: string }> = 
   memoboard: { title: 'STICKY', desc: '스티커 메모 미니보드 — 클릭 시 메모장 (4.6)' },
   apply: { title: 'COMMISSION', desc: '커미션 신청자 — 마감 빠른 순 (몇 명까지 볼지 설정)' },
   recent: { title: 'RECENT', desc: '최근 올라온 캐릭터·로그·갤러리 등 모아보기 (공개된 것만)' },
+  notice: { title: 'NOTICE', desc: '게시판 글을 공지란처럼 — 공지로 고정한 글 또는 최근 글 (게시판 고르기)' },   // 포크
 };
 
 /** 같은 종류를 여러 개 추가할 수 있는 위젯 (v1.9 사용자 확정 — 나머지는 하나만) */

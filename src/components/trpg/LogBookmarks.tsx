@@ -39,7 +39,7 @@ export type LogBookmark = {
  *  상자는 사이트와 분리돼 있어(널 오리진) 바깥에서 안을 직접 볼 수 없으므로 메시지로 주고받는다. */
 export const LOG_BM_IFRAME = `<script>(function(){
 var SKIP={SCRIPT:1,STYLE:1,LINK:1,META:1,NOSCRIPT:1,TEMPLATE:1};
-function L(){var b=document.body;if(!b)return[];var a=b.getElementsByTagName('*'),o=[];for(var j=0;j<a.length;j++)if(!SKIP[a[j].tagName])o.push(a[j]);return o;}
+function L(){var b=document.body;if(!b)return[];var a=b.getElementsByTagName('*'),o=[];for(var j=0;j<a.length;j++)if(!SKIP[a[j].tagName]&&!(a[j].className==='__bmf'||a[j].className==='__bmf __bmfc'))o.push(a[j]);return o;}
 function sn(e){try{return ((e&&e.textContent)||'').replace(/\\s+/g,' ').trim().slice(0,60);}catch(x){return '';}}
 function blk(e){var b=document.body;while(e&&e!==b&&e.parentElement){var d='';try{d=getComputedStyle(e).display;}catch(x){}
 if(d!=='inline'&&d!=='contents'&&e.getBoundingClientRect().height>0)break;e=e.parentElement;}return e;}
@@ -59,7 +59,7 @@ var de=document.documentElement;if(de.scrollHeight>innerHeight+4){scrollTo(0,Mat
 return y-scrollY;}
 var PK=false,HL=null,ST=null;
 function css(){if(ST)return;ST=document.createElement('style');
-ST.textContent='.__bmhl{outline:2px solid rgba(214,158,46,.95)!important;outline-offset:2px!important;background-color:rgba(255,214,102,.16)!important;cursor:pointer!important}.__bmfl{background-color:rgba(255,214,102,.38)!important}';
+ST.textContent='.__bmhl{outline:2px solid rgba(214,158,46,.95)!important;outline-offset:2px!important;background-color:rgba(255,214,102,.16)!important;cursor:pointer!important}.__bmfl{background-color:rgba(255,214,102,.38)!important}mark.__bmf{background:rgba(255,214,102,.55)!important;color:inherit!important;border-radius:2px;padding:0!important}mark.__bmfc{background:#f2a33a!important;color:#111!important;box-shadow:0 0 0 2px rgba(242,163,58,.45)}';
 (document.head||document.documentElement).appendChild(ST);}
 function hl(e){if(HL&&HL!==e)HL.classList.remove('__bmhl');HL=e;if(e&&e.classList)e.classList.add('__bmhl');}
 function flash(e){if(!e||!e.classList)return;css();e.classList.add('__bmfl');setTimeout(function(){e.classList.remove('__bmfl');},1400);}
@@ -70,9 +70,21 @@ addEventListener('click',function(ev){if(!PK)return;ev.preventDefault();ev.stopP
 hl(null);var R=e.getBoundingClientRect();flash(e);
 parent.postMessage({__bmPick:{i:L().indexOf(e),r:0,t:sn(e),p:Math.min(1,Math.max(0,(R.top+scrollY)/H()))}},'*');},true);
 addEventListener('keydown',function(ev){if(PK&&ev.key==='Escape')parent.postMessage({__bmPickCancel:1},'*');},true);
+var FM=[];
+function fclear(){for(var j=0;j<FM.length;j++){var m=FM[j],p=m.parentNode;if(!p)continue;while(m.firstChild)p.insertBefore(m.firstChild,m);p.removeChild(m);p.normalize();}FM=[];}
+function find(q){fclear();css();q=String(q||'').toLowerCase();if(!q||!document.body)return 0;
+var w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT,{acceptNode:function(n){var p=n.parentNode;if(!p||SKIP[p.nodeName])return 2;return n.nodeValue&&n.nodeValue.toLowerCase().indexOf(q)>=0?1:2;}});
+var nodes=[],n;while((n=w.nextNode()))nodes.push(n);
+for(var a=0;a<nodes.length&&FM.length<3000;a++){var t=nodes[a],v=t.nodeValue,lv=v.toLowerCase(),i=lv.indexOf(q),cur=t;
+while(i>=0&&FM.length<3000){var mid=cur.splitText(i);var rest=mid.splitText(q.length);var m=document.createElement('mark');m.className='__bmf';
+mid.parentNode.insertBefore(m,mid);m.appendChild(mid);FM.push(m);cur=rest;lv=rest.nodeValue.toLowerCase();i=lv.indexOf(q);}}
+return FM.length;}
+function fgo(i){if(!FM.length)return null;for(var j=0;j<FM.length;j++)FM[j].className='__bmf';var m=FM[i];if(!m)return null;m.className='__bmf __bmfc';
+var R=m.getBoundingClientRect(),y=R.top+scrollY;var de=document.documentElement;if(de.scrollHeight>innerHeight+4){scrollTo(0,Math.max(0,y-80));}return R.top+scrollY-scrollY+(de.scrollHeight>innerHeight+4?0:0);}
 addEventListener('message',function(ev){if(ev.source!==parent)return;var d=ev.data;if(!d||!d.__bm)return;
 var o={__bmR:d.k};try{if(d.__bm==='at')o.a=at(+d.y||0);else if(d.__bm==='go')o.y=go(d.a||{p:0});
-else if(d.__bm==='pick'){PK=!!d.on;css();if(!PK)hl(null);}}catch(x){o.err=1;}
+else if(d.__bm==='pick'){PK=!!d.on;css();if(!PK)hl(null);}
+else if(d.__bm==='find'){o.n=find(d.q);}else if(d.__bm==='findGo'){var r=fgo(+d.i||0);if(r!=null){o.y=FM[+d.i||0].getBoundingClientRect().top;}}else if(d.__bm==='findClear'){fclear();}}catch(x){o.err=1;}
 parent.postMessage(o,'*');});
 })();</scr${''}ipt>`;
 
@@ -151,18 +163,18 @@ export function useLogBookmarks() {
 type Mode = 'frame' | 'plain';
 const READ_LINE = 76;   // 화면(스크롤 영역) 맨 위에서 이만큼 아래를 「지금 읽는 줄」로 본다
 
-const mainEl = () => document.getElementById('appMain');
-function readLineY(): number {
+export const mainEl = () => document.getElementById('appMain');
+export function readLineY(): number {
   const m = mainEl();
   return (m ? Math.max(0, m.getBoundingClientRect().top) : 0) + READ_LINE;
 }
-function scrollMainBy(dy: number, smooth = true) {
+export function scrollMainBy(dy: number, smooth = true) {
   const m = mainEl();
   if (m) m.scrollTo({ top: m.scrollTop + dy, behavior: smooth ? 'smooth' : 'auto' });
   else window.scrollBy({ top: dy, behavior: smooth ? 'smooth' : 'auto' });
 }
 
-function ask<T>(frame: HTMLIFrameElement | null, msg: Record<string, unknown>, ms = 1500): Promise<T | null> {
+export function ask<T>(frame: HTMLIFrameElement | null, msg: Record<string, unknown>, ms = 1500): Promise<T | null> {
   return new Promise(resolve => {
     const win = frame?.contentWindow;
     if (!win) { resolve(null); return; }
