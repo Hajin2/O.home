@@ -58,6 +58,8 @@ export default function RelsPage() {
         <EditableDesc k="rels-desc" def="자관 목록 · 4:3 가로 썸네일 · 공개범위: 전체공개/멤버공개/나만보기" />
         <div className="head-actions">
           <SearchBar onSearch={setQ} />
+          <button className="btn btn-ghost" onClick={() => router.push('/rels/map')}>관계도</button>{/* 자관 관계도 (포크) */}
+          {isAdmin && <button className="btn btn-dark" onClick={() => router.push('/rels/new')}>＋ ADD RELATION</button>}
           {canAdd && <button className="btn btn-dark" onClick={() => router.push('/rels/new')}>＋ ADD RELATION</button>}
         </div>
       </div>

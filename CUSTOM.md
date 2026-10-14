@@ -416,3 +416,27 @@ Supabase 무료 요금제 전송량(egress)을 아끼려고. 화면에 보이는
 | `app/trpg/[id]/page.tsx` | import 1줄 · 본문 `useLocalList(...trpgbody...)` → `useLogBody(id)` 1줄 |
 | `app/trpg/page.tsx` | import 1줄 · 본문 `useLocalList` 줄 삭제(주석) · `setBodies([...bodies, body])` → `addLogBody(body)` |
 | `app/settings/page.tsx` | import 1줄 + `<TextProtectOptions />` 아래 `<ImageShrinkOptions />` 1줄 |
+
+## 31. 로그 안 검색 · 로그 목록 책갈피 표시 · 자관 관계도 · NOTICE 위젯
+
+**로그 안 검색** — 로그 상세의 떠 있는 버튼 줄 🔍 → 화면 위 검색 줄. 찾은 곳 전부 노랗게, 지금 위치는 진하게, 「3/11」 표시. Enter 다음 · Shift+Enter 이전 · Esc 닫기. HTML 로그는 로그 상자 안 스크립트가 찾아 칠하고(책갈피 위치 번호에는 영향 없음), 일반 글 로그는 화면에서 찾음(지원 브라우저는 전부 칠하고 지금 위치는 상자). 대소문자 무시, 한 글 조각 안에서 이어지는 글자만.
+
+**로그 목록 책갈피 표시** — 책갈피가 있는 로그 카드 썸네일 오른쪽 위에 🔖 개수(티켓형·기본형). 누르면 그 로그의 책갈피 목록 → 고르면 로그가 열리며 그 자리로. 각자 자기 책갈피만. 목록 전체에서 한 번만 읽어 나눠 씀.
+
+**자관 관계도** (`/rels/map`, 자관 목록 「관계도」 버튼) — 밤하늘 성도 디자인: 지도 판은 사이트 테마와 상관없이 늘 밤하늘(옅은 동심원·방사선·작은 별). 캐릭터 = 자기 색 테두리로 빛나는 초상 별(이름은 사이트 세리프), 2인 자관 = 별자리 선 + 선 위 작은 별과 기울임 세리프 이름, 3인+ 자관 = 네 갈래 별에서 멤버마다 점선. 같은 두 사람 사이 자관이 여럿이면 선이 갈라져 휨. 초상은 원 안에 잘려 들어감(크롭 위치 그대로). 별 누르기 = 그 관계만 밝게 + 왼쪽 아래 정보 카드(연결된 자관 목록 → 자관 페이지, 「캐릭터 페이지 열기」; 휴대폰은 고른 별을 카드 위로 옮겨 줌) · 빈 곳 누르기 = 풀기 · 자관 이름 = 자관 페이지. 끌어서 이동 · 휠/오른쪽 위 버튼(확대·축소·전체 보기) · 세계관 탭. 관리자는 별을 끌어 배치 → 「배치 저장」(메뉴 설정 `ohome.menuset.v1` 안 `relmapPos`, 방문자도 같은 배치) · 「자동 배치로」. 저장 안 한 별은 자동 배치. 볼 수 없는 자관·캐릭터는 안 그림. 성능: 자동 배치는 구성이 바뀔 때만 계산, 끄는 동안은 그 별과 이름만 옮기고, 화면 이동·확대 때는 지도 내용을 다시 그리지 않음(캐릭터 120명 규모에서 끌기·이동 모두 한 프레임 안). 서버에서 읽는 건 자관 목록 페이지와 같은 것(자관·캐릭터·세계관)뿐.
+
+**NOTICE 위젯** — 메인 위젯 추가에 「NOTICE」. 편집모드 우클릭 > 설정: 위젯 제목 · 게시판 · 「공지·고른 태그 글만」/「최근 글(공지 먼저)」 · **함께 띄울 태그**(예: 업데이트 — 쉼표로 여러 개, 그 태그가 달린 글도 공지처럼 뜨고 태그 이름 표시) · 몇 개. 공지가 먼저, 그다음 최신순. 글 누르면 그 글로, 「전체 ›」는 그 게시판으로. 메뉴에서 그 게시판이 비공개면 위젯도 안 보임 · 비밀글은 관리자·작성자에게만.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `components/trpg/LogFind.tsx` (새 파일) | 로그 안 검색 버튼·검색 줄 |
+| `components/trpg/LogBmBadge.tsx` (새 파일) | 목록 카드 🔖 표시 · `useBookmarkIndex` |
+| `components/trpg/LogBookmarks.tsx` (포크 파일) | 로그 상자 스크립트에 찾기(find/findGo/findClear) 추가 · 찾기 표시가 책갈피 위치 번호에 안 섞이게 · 도우미 몇 개 export |
+| `components/rels/RelMap.tsx` (새 파일) · `app/rels/map/page.tsx` (새 파일) | 자관 관계도 |
+| `components/main/NoticeWidget.tsx` (새 파일) | NOTICE 위젯 |
+| `app/trpg/[id]/page.tsx` | import 1줄 · LogNav `extra`에 `<LogFindButton …/>` 추가 |
+| `app/trpg/page.tsx` | import 1줄 · `const bmIdx = useBookmarkIndex();` 1줄 · 티켓 썸네일·기본형 썸네일 안에 `<LogBmBadge …/>` 각 1줄 |
+| `app/rels/page.tsx` | 머리 버튼 줄에 「관계도」 버튼 1줄 |
+| `lib/mainStore.tsx` | `WidgetType`에 `'notice'` · `WIDGET_META`에 notice 1줄 |
+| `app/page.tsx` | `ADDABLE`·`EDITABLE`에 `'notice'` |
+| `components/main/widgets.tsx` | import 1줄 · `case 'notice'` 1줄 |
