@@ -306,6 +306,19 @@ export async function createFirebaseBackend(cfg: FirebaseCfg): Promise<Backend> 
       return [...seen.values()].sort((a, b) => a.sort - b.sort).map(v => v.item);
     },
 
+    // 문서 하나만 (포크 추가) — 보안 규칙에 막히면(권한 없음) null
+    async fetchById<T extends ListItem>(coll: string, id: string): Promise<T | null> {
+      try {
+        const d = await getDoc(doc(db, coll, id));
+        if (!d.exists()) return null;
+        const raw = d.data() as { data?: Record<string, unknown> };
+        return { ...(raw.data ?? {}), id: d.id } as T;
+      } catch (e) {
+        if ((e as { code?: string })?.code === 'permission-denied') return null;
+        throw e;
+      }
+    },
+
     async syncList<T extends ListItem>(coll: string, prev: T[], next: T[], uid: string | null) {
       const { inserts, updates, moves, deletes } = diffList(prev, next);
       const ops = [...inserts, ...updates];

@@ -76,7 +76,8 @@ export async function putBlob(blob: Blob): Promise<string> {
   const key = await hashOf(blob);
   const hit = key ? sent.get(key) : undefined;
   if (hit) return hit;
-  const job = putBlobNew(blob);
+  // 큰 이미지는 올리기 전에 줄인다 (포크 최적화 — lib/imageShrink). 중복 확인은 원본 기준 그대로
+  const job = import('./imageShrink').then(m => m.shrinkImage(blob)).then(putBlobNew);
   if (key) {
     sent.set(key, job);
     // 실패한 업로드는 캐시에 남기지 않는다 — 다시 시도할 수 있어야 한다

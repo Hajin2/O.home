@@ -63,6 +63,8 @@ export interface Backend {
 
   /* ---- 목록(콘텐츠) ---- */
   fetchList<T extends ListItem>(coll: string): Promise<T[]>;
+  /** 행 하나만 읽기 (포크 추가 — 로그 본문처럼 큰 행을 통째 목록 대신 하나만). 권한이 없거나 없으면 null */
+  fetchById?<T extends ListItem>(coll: string, id: string): Promise<T | null>;
   syncList<T extends ListItem>(coll: string, prev: T[], next: T[], uid: string | null): Promise<void>;
   /** 이미 저장된 행의 공개범위만 다시 계산해 덮어쓴다 (v2.0) — 메뉴를 비공개로 바꾼 뒤
    *  「글에도 적용」을 누르면 돈다. 내용(data)·순서(sort)는 건드리지 않는다. */

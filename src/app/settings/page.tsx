@@ -61,6 +61,7 @@ import { FIRESTORE_RULES, STORAGE_RULES } from '@/lib/firebaseRules';
 import { SCHEMA_SQL } from '@/lib/schemaSql';
 import { TagPane } from '@/components/settings/TagPane';
 import { TextProtectOptions } from '@/lib/textProtect';
+import { ImageShrinkOptions } from '@/lib/imageShrink';
 import { PushAdminRow } from '@/components/shell/PushSettings';
 
 const CATEGORIES = [
@@ -2455,6 +2456,7 @@ function MenuPane() {
           </div>
           {/* 글 복사 방지 (포크) — 위 이미지 저장 방지와 같은 방식 */}
           <TextProtectOptions />
+          <ImageShrinkOptions />
         </div>
       ) : (
       <>
