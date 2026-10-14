@@ -500,7 +500,7 @@ const CSS = `
 
 /* 캐릭터 = 별: 초상 + 자기 색 테두리 + 그 색으로 번지는 빛 */
 .relmap-node{position:absolute;width:${R * 2}px;margin-left:-${R}px;margin-top:-${R}px;display:flex;flex-direction:column;align-items:center;cursor:pointer;transition:opacity .2s}
-.relmap-node .face{width:${R * 2}px;height:${R * 2}px;border-radius:50%;overflow:hidden;background:#1e2536;
+.relmap-node .face{position:relative;isolation:isolate;width:${R * 2}px;height:${R * 2}px;border-radius:50%;overflow:hidden;background:#1e2536;
   box-shadow:0 0 0 2px ${SKY},0 0 0 3.5px var(--cc),0 0 22px 2px color-mix(in srgb,var(--cc) 45%,transparent);transition:box-shadow .2s,transform .2s}
 .relmap-node .face img{width:100%;height:100%;object-fit:cover}
 .relmap-node b{margin-top:8px;font-family:var(--serif);font-weight:600;font-size:13.5px;letter-spacing:.06em;white-space:nowrap;color:${STAR};
@@ -541,7 +541,7 @@ const CSS = `
 .relmap-card .x{position:absolute;top:10px;right:10px;width:26px;height:26px;border:0;border-radius:50%;background:transparent;color:${STAR_DIM};display:grid;place-items:center;cursor:pointer}
 .relmap-card .x:hover{color:${STAR};background:rgba(239,231,210,.08)}
 .relmap-card .who{display:flex;align-items:center;gap:12px;padding-right:22px}
-.relmap-card .who .face{width:46px;height:46px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 0 0 2px #0d111b,0 0 0 3px var(--cc)}
+.relmap-card .who .face{position:relative;isolation:isolate;width:46px;height:46px;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 0 0 2px #0d111b,0 0 0 3px var(--cc)}
 .relmap-card .who .face img{width:100%;height:100%;object-fit:cover}
 .relmap-card h5{margin:0;font-family:var(--serif);font-size:18px;font-weight:600;letter-spacing:.05em;line-height:1.25}
 .relmap-card p{margin:3px 0 0;font-size:12px;color:${STAR_DIM};line-height:1.5}
