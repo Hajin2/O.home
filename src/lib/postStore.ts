@@ -6,6 +6,7 @@ import type { PostMode } from './sanitize';
 import { isServerMode } from './supabase';
 import { TABLE_OF, fetchList, syncList, subscribeTable, watchTable } from './db';
 import { currentUserId } from './currentUser';
+import { cachedList, peekList } from './listCache';   // 포크 최적화 — 같은 표 중복 요청 합치기 + 30초 기억
 
 /** 목록 저장 실패 알림 (v2.0) — 조용히 되돌리면 "쓴 게 바로 지워진다"로만 보여 원인을 알 수 없다.
  *  ListSync가 받아 화면에 띄운다 (설정 저장 실패 알림과 같은 방식) */
@@ -104,8 +105,9 @@ export function useLocalList<T extends { id?: string }>(key: string, seed: T[]):
   // 서버 모드에선 시드를 화면에 내보내지 않는다 (v2.0 사용자 발견) — 서버 목록을 받아오기 전까지
   // 예시 데이터가 잠깐 보였다 사라지는 깜빡임의 원인이었다. 시드는 로컬 모드의 시작값일 뿐이고,
   // 서버 모드에서 시드를 기준으로 삼으면 저장할 때 없는 행을 지우려 드는 문제도 있었다.
-  const [list, setList] = useState<T[]>(() => (server ? [] : seed));
-  const [loaded, setLoaded] = useState(false);
+  // 서버 모드 첫 그림 — 방금 받은 기억이 있으면 그걸로 바로 (포크 최적화: lib/listCache)
+  const [list, setList] = useState<T[]>(() => (server ? (peekList<T>(table, currentUserId()) ?? []) : seed));
+  const [loaded, setLoaded] = useState(() => server && !!peekList(table, currentUserId()));
   const latest = useRef<T[]>(list);          // diff 기준이 되는 "DB에 있다고 아는" 상태
   latest.current = list;
   // 순번 — 서버 fetch가 여러 건 동시에 떠 있을 때, 늦게 시작한 것보다 먼저 도착한 낡은 결과가
@@ -138,9 +140,10 @@ export function useLocalList<T extends { id?: string }>(key: string, seed: T[]):
         setList(rows); latest.current = rows; setLoaded(true);
       });
       if (offWatch) return () => { alive = false; offWatch(); };
-      const load = () => {
+      // force — 실시간 구독 신호(누군가 바꿈)면 기억을 무시하고 새로 받는다
+      const load = (force = false) => {
         const id = ++reqId.current;
-        fetchList<T & { id: string }>(table)
+        cachedList<T & { id: string }>(table, currentUserId(), () => fetchList<T & { id: string }>(table), force)
           .then(rows => {
             if (!alive || id !== reqId.current) return;   // 그 사이 더 최신 요청이 있었으면 버림
             setList(rows); latest.current = rows; setLoaded(true);
@@ -148,7 +151,7 @@ export function useLocalList<T extends { id?: string }>(key: string, seed: T[]):
           .catch(() => { if (alive) setLoaded(true); });
       };
       load();
-      const off = subscribeTable(table, load);   // 다른 사람이 쓰면 바로 반영
+      const off = subscribeTable(table, () => load(true));   // 다른 사람이 쓰면 바로 반영
       return () => { alive = false; off(); };
     }
     try {

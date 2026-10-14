@@ -6,6 +6,7 @@
 // 저장 시점에 이전/새 배열을 비교해 바뀐 것만 보낸다(어댑터의 syncList).
 import { backend, COLLECTION_OF } from './backend';
 import type { ListItem } from './backend';
+import { invalidateList } from './listCache';   // 포크 최적화 — 저장하면 그 표의 짧은 기억을 버린다
 
 export { COLLECTION_OF as TABLE_OF };
 
@@ -18,7 +19,9 @@ export async function syncList<T extends ListItem>(
   coll: string, prev: T[], next: T[], uid: string | null,
 ): Promise<void> {
   const be = backend();
-  if (be) await be.syncList(coll, prev, next, uid);
+  invalidateList(coll);
+  try { if (be) await be.syncList(coll, prev, next, uid); }
+  finally { invalidateList(coll); }
 }
 
 /* ---------- 실시간 목록 공유 (포크, 읽기 최적화) ----------
