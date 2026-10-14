@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useRawList } from '@/lib/rawList';
 import { Character, CHAR_SEED, Relation, REL_SEED, charPath, relPath } from '@/lib/charStore';
-import { useVisibleWorlds, useCanSee } from '@/lib/worldStore';
+import { useVisibleWorlds, useCanSee, canEditWorld } from '@/lib/worldStore';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { CroppedBlobImg } from '@/components/ui/CropEditor';
 import { TagList } from '@/components/ui/TagList';
@@ -15,7 +15,7 @@ import { PageTitle } from '@/components/ui/PageText';
 export default function WorldDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const canSee = useCanSee();
   const worlds = useVisibleWorlds();
   const chars = useRawList<Character>('ohome.chars.v1', CHAR_SEED);
@@ -42,7 +42,7 @@ export default function WorldDetailPage() {
       <div className="page-head">
         <PageTitle href="/worlds">WORLDS</PageTitle>
         <div className="head-actions">
-          {isAdmin && <button className="btn btn-ghost" onClick={() => router.push(`/worlds/${w.id}/edit`)}>EDIT</button>}
+          {canEditWorld(w, user?.id, isAdmin) && <button className="btn btn-ghost" onClick={() => router.push(`/worlds/${w.id}/edit`)}>EDIT</button>}
           <button className="btn btn-ghost" onClick={() => router.push('/worlds')}>목록</button>
         </div>
       </div>

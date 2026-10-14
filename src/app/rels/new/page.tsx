@@ -3,6 +3,7 @@
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { useEditableWorlds, canEditChar, stampRelEditors } from '@/lib/charAccess';
 import { useLocalList, newId } from '@/lib/postStore';
 import { Character, CHAR_SEED, Relation, REL_SEED, RelMember } from '@/lib/charStore';
 import { RelForm } from '@/components/rels/RelForm';
@@ -11,16 +12,17 @@ import { PageTitle, EditableDesc } from '@/components/ui/PageText';
 
 export default function RelNewPage() {
   const router = useRouter();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const editable = useEditableWorlds();   // 세계관 편집 회원도 자관 추가 (포크)
   const toast = useToast();
   const [rels, setRels, loaded] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
   const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
 
-  if (!loaded) return <section className="page" />;
-  if (!isAdmin) {
+  if (!loaded || !editable.loaded) return <section className="page" />;
+  if (!editable.canAdd) {
     return (
       <section className="page">
-        <div className="page-head"><PageTitle>ADD RELATION</PageTitle><p>관리자 전용</p></div>
+        <div className="page-head"><PageTitle>ADD RELATION</PageTitle><p>자관을 추가할 권한이 없습니다</p></div>
       </section>
     );
   }
@@ -33,7 +35,8 @@ export default function RelNewPage() {
       </div>
       <RelForm
         initial={null}
-        myChars={chars.filter(c => c.own)}
+        // 회원은 자기가 편집할 수 있는 캐릭터로 시작한다 (상대 캐릭터는 상세에서 추가)
+        myChars={isAdmin ? chars.filter(c => c.own) : chars.filter(c => canEditChar(c, user?.id, false))}
         existingIds={rels.flatMap(r => [r.id, ...(r.slug ? [r.slug] : [])])}
         onCancel={() => router.push('/rels')}
         onSave={v => {
@@ -57,8 +60,9 @@ export default function RelNewPage() {
             illustMode: v.kind === 'pair' ? 'duo' : 'one',
             aus: [{ id: 'base', label: '원본', catchphrase: v.catchphrase }],
             timeline: [], questions: [],
+            authorId: user?.id,
           };
-          setRels([...rels, rel]);
+          setRels(stampRelEditors([...rels, rel], rels, chars));
           toast('자관이 등록되었습니다 — 상대 캐릭터·한마디 등은 상세에서 이어서');
           router.push(`/rels/${rel.id}`);
         }}
