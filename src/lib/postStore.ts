@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PostMode } from './sanitize';
 import { isServerMode } from './supabase';
-import { TABLE_OF, fetchList, syncList, subscribeTable } from './db';
+import { TABLE_OF, fetchList, syncList, subscribeTable, watchTable } from './db';
 import { currentUserId } from './currentUser';
 
 /** 목록 저장 실패 알림 (v2.0) — 조용히 되돌리면 "쓴 게 바로 지워진다"로만 보여 원인을 알 수 없다.
@@ -115,10 +115,29 @@ export function useLocalList<T extends { id?: string }>(key: string, seed: T[]):
   // 되돌려써 버릴 수 있다. 낙관적 갱신(update) 시점에도 순번을 올려 그 전에 나간 fetch는 전부
   // 낡은 것으로 취급 — 막 반영한 내 변경을 이전 결과가 지우지 못하게 한다.
   const reqId = useRef(0);
+  // 실시간 목록(watchTable)을 쓸 때 — 내 저장이 서버에 닿기 전에 온 목록은 잠시 보류한다.
+  // 그 사이 다른 사람의 변경이 오면, 방금 화면에 반영한 내 변경이 잠깐 사라졌다 돌아오는 깜빡임이 생긴다
+  const pending = useRef(0);
+  const held = useRef<T[] | null>(null);
+  // 로그인 상태가 바뀌면 다시 연결 (읽을 수 있는 범위가 달라진다)
+  const [uidTick, setUidTick] = useState(0);
+  useEffect(() => {
+    const on = () => setUidTick(t => t + 1);
+    window.addEventListener('ohome-uid', on);
+    return () => window.removeEventListener('ohome-uid', on);
+  }, []);
 
   useEffect(() => {
     let alive = true;
     if (server) {
+      // 읽기 최적화 (포크) — 백엔드가 실시간 목록을 지원하면 그걸로 받는다. 바뀔 때마다 전체를 다시 읽지 않고,
+      // 같은 목록을 쓰는 다른 화면과 연결도 나눠 쓴다. 지원하지 않으면(Supabase) 아래 예전 방식 그대로.
+      const offWatch = watchTable<T & { id: string }>(table, currentUserId(), rows => {
+        if (!alive) return;
+        if (pending.current > 0) { held.current = rows; return; }
+        setList(rows); latest.current = rows; setLoaded(true);
+      });
+      if (offWatch) return () => { alive = false; offWatch(); };
       const load = () => {
         const id = ++reqId.current;
         fetchList<T & { id: string }>(table)
@@ -143,7 +162,8 @@ export function useLocalList<T extends { id?: string }>(key: string, seed: T[]):
     };
     window.addEventListener('storage', onStorage);
     return () => { alive = false; window.removeEventListener('storage', onStorage); };
-  }, [key, server, table]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, server, table, uidTick]);
 
   const update = useCallback((next: T[]) => {
     const prev = latest.current;
@@ -152,8 +172,19 @@ export function useLocalList<T extends { id?: string }>(key: string, seed: T[]):
     setList(next);            // 낙관적 반영 — 화면은 즉시 바뀐다
     latest.current = next;
     if (server) {
+      pending.current++;
       syncList(table, prev as unknown as { id: string }[], next as unknown as { id: string }[], currentUserId())
+        .then(() => {
+          // 저장이 끝나면 그동안 보류한 최신 목록을 반영한다 (실시간 목록을 쓸 때만 값이 있다)
+          pending.current = Math.max(0, pending.current - 1);
+          if (pending.current === 0 && held.current) {
+            const rows = held.current; held.current = null;
+            setList(rows); latest.current = rows;
+          }
+        })
         .catch(err => {
+          pending.current = Math.max(0, pending.current - 1);
+          held.current = null;
           // 실패하면 서버 상태로 되돌려 화면과 DB가 어긋난 채로 남지 않게 —
           // 되돌리기만 하면 "방금 쓴 게 스스로 사라지는" 것처럼 보이므로 이유도 함께 알린다 (v2.0)
           console.error('[ohome] 저장 실패', err);
