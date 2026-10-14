@@ -59,7 +59,6 @@ export default function RelsPage() {
         <div className="head-actions">
           <SearchBar onSearch={setQ} />
           <button className="btn btn-ghost" onClick={() => router.push('/rels/map')}>관계도</button>{/* 자관 관계도 (포크) */}
-          {isAdmin && <button className="btn btn-dark" onClick={() => router.push('/rels/new')}>＋ ADD RELATION</button>}
           {canAdd && <button className="btn btn-dark" onClick={() => router.push('/rels/new')}>＋ ADD RELATION</button>}
         </div>
       </div>
