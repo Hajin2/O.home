@@ -19,12 +19,14 @@ import { useToast } from '@/components/ui/Toast';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 import { useMainStore } from '@/lib/mainStore';
 import { useCardSort, mergeOrder } from '@/lib/cardSort';
+import { useEditableWorlds } from '@/lib/charAccess';
 
 function CharsInner() {
   const router = useRouter();
   const { isAdmin } = useAuth();
   const toast = useToast();
   const { editOn } = useMainStore();
+  const { canAdd } = useEditableWorlds();   // 세계관 편집 회원도 추가 (포크)
   const [charsAll, setCharsAll] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   // 여러 개로 만든 캐릭터 목록 (v2.0 사용자 요청) — 주소의 ?s= 가 가리키는 것만
   const sec = useSectionParam('chars');
@@ -69,7 +71,8 @@ function CharsInner() {
         <EditableDesc k="chars-desc" def="운영자의 자캐 목록 · 3:4 두상 썸네일 · 클릭 시 프로필로 이동" />
         <div className="head-actions">
           <SearchBar onSearch={setQ} />
-          {isAdmin && <button className="btn btn-dark" onClick={() => router.push('/chars/new' + secQuery('chars', sec.id))}>＋ ADD CHARACTER</button>}
+          {canAdd && <button className="btn btn-ghost" onClick={() => router.push('/chars/bulk' + secQuery('chars', sec.id))} data-tip="양식 글로 여러 명 한 번에 등록">BULK ADD</button>}
+          {canAdd && <button className="btn btn-dark" onClick={() => router.push('/chars/new' + secQuery('chars', sec.id))}>＋ ADD CHARACTER</button>}
         </div>
       </div>
       {world.element}

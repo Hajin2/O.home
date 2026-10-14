@@ -70,6 +70,9 @@ export interface Backend {
    *  「글에도 적용」을 누르면 돈다. 내용(data)·순서(sort)는 건드리지 않는다. */
   refreshVis<T extends ListItem>(coll: string, items: T[], uid: string | null): Promise<number>;
   subscribe(coll: string, onChange: () => void): () => void;
+  /** (선택) 목록을 실시간으로 받아 온다 — 바뀔 때마다 전체를 다시 읽지 않고 바뀐 문서만 받는다 (포크, 읽기 최적화).
+   *  지원하지 않는 백엔드는 비워 두면 예전 방식(fetchList + subscribe)으로 동작한다. */
+  watchList?<T extends ListItem>(coll: string, onRows: (rows: T[]) => void, onError?: (e: unknown) => void): () => void;
 
   /* ---- 설정(key/value) ---- */
   fetchSetting<T>(key: string): Promise<T | null>;
@@ -189,12 +192,16 @@ export function metaOf(item: ListItem, uid: string | null, floor = 'public') {
  * (v2.0 사용자 발견 — 댓글 문제와 같은 뿌리).
  */
 export function editorIdsOf(item: ListItem): string[] {
+  // 자관처럼 grants가 없는 항목은 화면이 계산해 둔 평평한 목록(editorUids)을 쓴다 (포크)
+  const flat = Array.isArray(item.editorUids)
+    ? (item.editorUids as unknown[]).filter((x): x is string => typeof x === 'string')
+    : [];
   const grants = item.grants;
-  if (!Array.isArray(grants)) return [];
-  return grants
+  if (!Array.isArray(grants)) return flat;
+  return [...flat, ...grants
     .filter((g): g is { userId: string; level: string } =>
       !!g && typeof g === 'object'
       && typeof (g as { userId?: unknown }).userId === 'string'
       && (g as { level?: unknown }).level === 'edit')
-    .map(g => g.userId);
+    .map(g => g.userId)];
 }

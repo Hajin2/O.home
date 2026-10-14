@@ -377,6 +377,40 @@ export async function createFirebaseBackend(cfg: FirebaseCfg): Promise<Backend> 
       return n;
     },
 
+    /* 실시간 목록 (포크, 읽기 최적화) — onSnapshot이 주는 문서를 그대로 쓴다.
+       예전 방식은 「바뀌었다」는 신호만 받고 매번 getDocsFromServer로 목록 전체를 다시 읽어서,
+       한 줄 쓸 때마다 (전체 문서 수 × 질의 2개 × 신호 2번)만큼 읽기가 나갔다. 리스너는 처음에 한 번
+       전체를 읽고 그 뒤로는 바뀐 문서만 과금된다. 두 질의(공개분 · 내 글)는 문서 id로 합친다. */
+    watchList<T extends ListItem>(coll: string, onRows: (rows: T[]) => void, onError?: (e: unknown) => void) {
+      let offs: Array<() => void> = [];
+      let stopped = false;
+      void readSets().then(sets => {
+        if (stopped) return;
+        const parts: Array<Map<string, { sort: number; item: T }> | null> = sets.map(() => null);
+        const emit = () => {
+          if (parts.some(p => p === null)) return;            // 모든 질의의 첫 결과가 올 때까지 기다린다
+          const seen = new Map<string, { sort: number; item: T }>();
+          parts.forEach(p => p!.forEach((v, k) => { if (!seen.has(k)) seen.set(k, v); }));
+          onRows([...seen.values()].sort((a, b) => a.sort - b.sort).map(v => v.item));
+        };
+        offs = sets.map((cs, i) => onSnapshot(listQuery(coll, cs), snap => {
+          const m = new Map<string, { sort: number; item: T }>();
+          snap.docs.forEach(d => {
+            const raw = d.data() as { data?: Record<string, unknown>; sort?: number };
+            m.set(d.id, { sort: raw.sort ?? 0, item: { ...(raw.data ?? {}), id: d.id } as T });
+          });
+          parts[i] = m;
+          emit();
+        }, err => {
+          // 권한이 없는 질의는 빈 목록으로 친다 (fetchList와 같은 결과) — 다른 질의는 계속 받는다
+          parts[i] = new Map();
+          emit();
+          onError?.(err);
+        }));
+      }).catch(err => onError?.(err));
+      return () => { stopped = true; offs.forEach(off => off()); offs = []; };
+    },
+
     subscribe(coll, onChange) {
       // 조건이 두 갈래면 구독도 두 개 — fetchList와 같은 이유(질의 전체 거부 방지)
       let offs: Array<() => void> = [];

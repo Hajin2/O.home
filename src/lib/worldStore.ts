@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { useAuth } from './auth';
 import { useRawList, type RawList } from './rawList';
-import type { Visibility, Character } from './charStore';
+import type { Visibility, Character, CharGrant } from './charStore';
 import type { CropValue } from '@/components/ui/CropEditor';
 
 export const WORLD_KEY = 'ohome.worlds.v1';
@@ -22,6 +22,11 @@ export interface World {
   label?: string;            // 목록 오른쪽 작은 글씨 (기본 VIEW)
   visibility: Visibility;
   date: string;
+  /** 처음 만든 관리자 (세계관 편집 권한) — 편집 회원이 저장해도 작성자가 바뀌지 않게 데이터에 같이 둔다 */
+  authorId?: string;
+  /** 이 세계관을 편집할 수 있는 회원 (세계관 편집 권한). level은 언제나 'edit'.
+   *  저장할 때 editorIds(평평한 배열)로 뽑혀 서버 규칙이 그대로 확인한다 */
+  grants?: CharGrant[];
 }
 
 export const WORLD_SEED: World[] = [];
@@ -30,6 +35,13 @@ export const worldPath = (w: { id: string }) => `/worlds/${w.id}`;
 
 export function useWorldList(): RawList<World> {
   return useRawList<World>(WORLD_KEY, WORLD_SEED);
+}
+
+/** 이 세계관을 편집할 수 있는가 — 관리자 또는 편집 권한을 받은 회원 */
+export function canEditWorld(w: World, userId: string | undefined, isAdmin: boolean): boolean {
+  if (isAdmin) return true;
+  if (!userId) return false;
+  return !!w.grants?.some(g => g.userId === userId && g.level === 'edit');
 }
 
 /** 이 사람이 볼 수 있는 공개범위인가 */

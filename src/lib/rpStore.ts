@@ -42,14 +42,16 @@ export interface RpRoom {
 export function rpMemberIds(
   r: RpRoom,
   rels: { id: string; members: { charId: string }[] }[],
-  chars: { id: string; grants?: { userId: string }[] }[],
+  chars: { id: string; grants?: { userId: string }[]; authorId?: string }[],
 ): string[] {
   const ids = new Set<string>();
   if (r.createdBy) ids.add(r.createdBy);
   if (r.relId) {
     const rel = rels.find(x => x.id === r.relId);
     rel?.members.forEach(m => {
-      chars.find(c => c.id === m.charId)?.grants?.forEach(g => ids.add(g.userId));
+      const c = chars.find(x => x.id === m.charId);
+      c?.grants?.forEach(g => ids.add(g.userId));
+      if (c?.authorId) ids.add(c.authorId);   // 캐릭터를 만든 회원도 참여 (포크)
     });
     return [...ids];
   }

@@ -1,7 +1,9 @@
 'use client';
 // 세계관 등록/수정 폼 — 이름·한 줄 소개·커버(1:1)·문서 탭(각 탭 HTML 에디터)·태그·공개범위
+// 편집 회원(세계관 편집 권한): 공개범위와 편집 회원 칸은 관리자에게만 보인다. 편집 회원이 저장하면
+// 두 값과 작성자는 원래 값 그대로 저장된다 (서버 규칙도 바꾸지 못하게 막는다).
 import React, { useEffect, useState } from 'react';
-import type { Visibility } from '@/lib/charStore';
+import type { Visibility, CharGrant } from '@/lib/charStore';
 import type { World, WorldTab } from '@/lib/worldStore';
 import { newId } from '@/lib/postStore';
 import { putBlob, getBlob, useBlobUrl } from '@/lib/blobStore';
@@ -12,6 +14,8 @@ import { TagInput } from '@/components/ui/TagInput';
 import { parseTags } from '@/lib/tagUtil';
 import { fileDrop } from '@/lib/dnd';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/lib/auth';
+import { WorldEditorsEditor } from '@/components/worlds/WorldEditorsEditor';
 
 export function WorldForm({ initial, onSave, onCancel }: {
   initial: World | null;
@@ -19,6 +23,8 @@ export function WorldForm({ initial, onSave, onCancel }: {
   onCancel: () => void;
 }) {
   const toast = useToast();
+  const { user, isAdmin } = useAuth();
+  const [grants, setGrants] = useState<CharGrant[]>(initial?.grants ?? []);
   const [name, setName] = useState(initial?.name ?? '');
   const [sub, setSub] = useState(initial?.sub ?? '');
   const [label, setLabel] = useState(initial?.label ?? '');
@@ -68,6 +74,12 @@ export function WorldForm({ initial, onSave, onCancel }: {
         imgId, crop: imgId ? crop : undefined,
         tabs, tags: parseTags(tagsText), visibility,
         date: initial?.date ?? new Date().toISOString().slice(0, 10),
+        // 작성자는 처음 값을 그대로 — 없으면(예전 세계관) 지금 저장하는 관리자로 채운다
+        authorId: initial?.authorId ?? (isAdmin ? user?.id : undefined),
+        // 편집 회원 목록·공개범위는 관리자만 바꾼다 — 편집 회원이 저장할 때는 원래 값 유지
+        ...(isAdmin
+          ? { grants: grants.length ? grants : undefined }
+          : { grants: initial?.grants, visibility: initial?.visibility ?? visibility }),
       });
     } finally { setBusy(false); }
   };
@@ -93,6 +105,7 @@ export function WorldForm({ initial, onSave, onCancel }: {
           <KInput placeholder="한 줄 소개 (목록에 표시)" value={sub} onChange={e => setSub(e.target.value)} />
           <KInput placeholder="목록 오른쪽 글자 (비우면 VIEW)" value={label} onChange={e => setLabel(e.target.value)} />
           <TagInput value={tagsText} onChange={setTagsText} />
+          {isAdmin && <>
           <KSelect value={visibility} onChange={v => setVisibility(v as Visibility)}
             options={[
               { value: 'public', label: '전체공개' },
@@ -100,6 +113,7 @@ export function WorldForm({ initial, onSave, onCancel }: {
               { value: 'private', label: '나만보기' },
             ]} />
           <p className="hint" style={{ margin: 0 }}>공개범위는 서버에서 지켜져요 — 나만보기는 다른 사람에게 목록·주소·캐릭터 수 모두 보이지 않습니다.</p>
+          </>}
         </div>
       </div>
 
@@ -124,6 +138,17 @@ export function WorldForm({ initial, onSave, onCancel }: {
           </div>
         )}
       </div>
+
+      {isAdmin && (
+        <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 600 }}>편집 회원</div>
+          <p className="hint" style={{ margin: 0 }}>
+            추가한 회원은 이 세계관의 이름·소개·커버·문서 탭·태그를 고칠 수 있어요. 공개범위·편집 회원·삭제·정렬은 관리자만 할 수 있습니다.
+            나만보기 세계관은 편집 회원에게도 보이지 않으니, 맡길 세계관은 멤버공개 이상으로 두세요.
+          </p>
+          <WorldEditorsEditor value={grants} onChange={setGrants} />
+        </div>
+      )}
 
       <div className="form-actions">
         <button className="btn btn-ghost" onClick={onCancel}>CANCEL</button>

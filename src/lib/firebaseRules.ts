@@ -93,10 +93,41 @@ service cloud.firestore {
                 && request.auth.uid in resource.data.editorIds));
     }
 
+    // ── 세계관 (세계관 편집 권한) ─────────────────────────────────
+    // 추가·삭제는 관리자만. 수정은 관리자 또는 편집 권한을 받은 회원(editorIds).
+    // 편집 회원은 내용(이름·소개·커버·문서 탭·태그)만 고칠 수 있고, 작성자·공개범위·편집 회원 목록은
+    // 바꿀 수 없다 — 스스로 권한을 넓히거나 다른 회원을 끌어들이지 못하게.
+    function sameWorldGuard() {
+      return request.resource.data.get('authorId', null) == resource.data.get('authorId', null)
+        && request.resource.data.get('visibility', null) == resource.data.get('visibility', null)
+        && request.resource.data.get('editorIds', []) == resource.data.get('editorIds', [])
+        && request.resource.data.get('data', {}).get('grants', []) == resource.data.get('data', {}).get('grants', []);
+    }
+    match /worlds/{docId} {
+      allow read: if resource.data.visibility == 'public'
+        || (resource.data.visibility == 'member' && signedIn())
+        || (signedIn() && resource.data.authorId == request.auth.uid)
+        || isAdmin();
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (signedIn()
+            && request.auth.uid in resource.data.get('editorIds', [])
+            && sameWorldGuard());
+    }
+
     // ── 캐릭터 양식 (읽기 누구나 · 쓰기 관리자) ──────────────────
     // 캐릭터 화면이 양식으로 그려지므로 방문자도 읽어야 한다. 양식에는 디자인만 있고 캐릭터 내용은 없다.
     match /char_templates/{docId} {
       allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ── 위젯 공유 (읽기 공개범위대로 · 쓰기 관리자) ──────────────
+    match /widgets/{docId} {
+      allow read: if resource.data.visibility == 'public'
+        || (resource.data.visibility == 'member' && signedIn())
+        || (signedIn() && resource.data.authorId == request.auth.uid)
+        || isAdmin();
       allow write: if isAdmin();
     }
   }

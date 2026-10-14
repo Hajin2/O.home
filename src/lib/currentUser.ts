@@ -4,5 +4,10 @@
 
 let uid: string | null = null;
 
-export function setCurrentUserId(id: string | null) { uid = id; }
+export function setCurrentUserId(id: string | null) {
+  if (uid === id) return;
+  uid = id;
+  // 로그인 상태가 바뀌면 실시간 목록을 그 사람 기준으로 다시 연결한다 (포크, 읽기 최적화 — postStore)
+  try { window.dispatchEvent(new CustomEvent('ohome-uid')); } catch { /* SSR */ }
+}
 export function currentUserId(): string | null { return uid; }
