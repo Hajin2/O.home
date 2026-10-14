@@ -55,7 +55,7 @@ const CSS = `
   -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);box-shadow:0 2px 8px rgba(0,0,0,.18)}
 .lbb-btn:hover{background:rgba(20,22,27,.8)}
 .lbb-btn svg{width:12px;height:12px}
-.lbb-pop{position:fixed;z-index:95;min-width:200px;max-width:260px;max-height:240px;overflow:auto;padding:6px;border-radius:11px;
+.lbb-pop{position:fixed;z-index:95;max-height:240px;overflow:auto;padding:6px;border-radius:11px;
   background:var(--panel-solid,#fff);color:var(--ink,#222);border:1px solid var(--line);box-shadow:var(--sh-dd,0 8px 24px rgba(0,0,0,.2));text-align:left}
 .lbb-pop .h{font-size:10px;letter-spacing:.14em;color:var(--faint);padding:4px 8px 6px}
 .lbb-pop button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:transparent;color:inherit;text-align:left;
@@ -70,7 +70,7 @@ const CSS = `
 /** 카드 썸네일 구석의 책갈피 표시 — 책갈피가 없으면 아무것도 그리지 않는다 */
 export function LogBmBadge({ logId, items, small }: { logId: string; items?: LogBookmark[]; small?: boolean }) {
   const router = useRouter();
-  const [at, setAt] = useState<{ top: number; right: number } | null>(null);   // 열린 목록 위치 (화면 기준)
+  const [at, setAt] = useState<{ left: number; top?: number; bottom?: number; w: number } | null>(null);   // 열린 목록 위치 (화면 기준)
   const open = !!at;
   const ref = useRef<HTMLDivElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -94,7 +94,16 @@ export function LogBmBadge({ logId, items, small }: { logId: string; items?: Log
   const toggle = () => {
     if (open) { setAt(null); return; }
     const r = ref.current?.getBoundingClientRect();
-    if (r) setAt({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    if (!r) return;
+    // 화면 안에 들어오게 — 버튼 오른쪽 끝에 맞추되 왼쪽·오른쪽 밖으로 나가지 않게 당기고,
+    // 아래 공간이 모자라면 위로 펼친다 (휴대폰에서 왼쪽 썸네일의 버튼을 누르면 목록이 화면 밖으로 잘리던 것)
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const w = Math.min(260, vw - 16);
+    const left = Math.min(Math.max(8, r.right - w), vw - w - 8);
+    const popH = Math.min(240, 40 + items!.length * 34);
+    setAt(r.bottom + 6 + popH > vh - 8 && r.top - 6 - popH > 8
+      ? { left, bottom: vh - r.top + 6, w }
+      : { left, top: r.bottom + 6, w });
   };
   if (!items?.length) return null;
   return (
@@ -105,7 +114,7 @@ export function LogBmBadge({ logId, items, small }: { logId: string; items?: Log
         {items.length}
       </button>
       {at && createPortal(
-        <div ref={popRef} className="lbb-pop" role="menu" style={{ top: at.top, right: at.right }} onClick={e => e.stopPropagation()}>
+        <div ref={popRef} className="lbb-pop" role="menu" style={{ left: at.left, top: at.top, bottom: at.bottom, width: at.w }} onClick={e => e.stopPropagation()}>
           <style>{CSS}</style>
           <div className="h">책갈피로 바로 가기</div>
           {items.map(b => (
