@@ -34,21 +34,47 @@ export function peekList<T>(table: string, uid: string | null): T[] | undefined 
   return e?.rows && Date.now() - e.at < TTL ? (e.rows as T[]) : undefined;
 }
 
+/* 저장 중인 표 — 그 표를 읽으려는 요청은 저장이 끝난 뒤에 받는다 (방금 쓴 것이 빠진 목록을 받지 않게).
+   예: 캐릭터 등록 → 곧바로 상세 페이지로 이동 → 상세가 저장보다 먼저 목록을 받아 「캐릭터를 찾을 수 없습니다」 */
+const writing = new Map<string, Set<Promise<unknown>>>();
+const WRITE_WAIT_MAX = 8000;   // 저장이 멈춰도 읽기를 영영 막지 않게
+
+/** 저장 작업을 알린다 (db.syncList가 부른다) */
+export function trackWrite(table: string, job: Promise<unknown>) {
+  const set = writing.get(table) ?? new Set();
+  writing.set(table, set);
+  set.add(job);
+  const rm = () => { set.delete(job); };
+  job.then(rm, rm);
+}
+
+function afterWrites(table: string): Promise<void> {
+  const set = writing.get(table);
+  if (!set?.size) return Promise.resolve();
+  return Promise.race([
+    Promise.allSettled([...set]).then(() => undefined),
+    new Promise<void>(r => setTimeout(r, WRITE_WAIT_MAX)),
+  ]);
+}
+
 /** 기억 우선으로 표 읽기 — force면 기억을 무시하고 새로 받는다(같은 때 들어온 새로 받기 요청은 하나로 합친다) */
 export function cachedList<T>(table: string, uid: string | null, fetcher: () => Promise<T[]>, force = false): Promise<T[]> {
   const key = keyOf(table, uid);
   const e = store.get(key) ?? { at: 0, gen: 0 };
   if (!force && e.rows && Date.now() - e.at < TTL) return Promise.resolve(e.rows as T[]);
   if (e.p && (!force || e.forced)) return e.p as Promise<T[]>;
-  const gen = e.gen;
-  const p = fetcher().then(rows => {
-    const cur = store.get(key);
-    if (cur && cur.gen === gen && cur.p === p) { cur.rows = rows; cur.at = Date.now(); cur.p = undefined; }
-    return rows;
-  }, err => {
-    const cur = store.get(key);
-    if (cur && cur.p === p) cur.p = undefined;
-    throw err;
+  let p!: Promise<T[]>;
+  p = afterWrites(table).then(() => {
+    const gen = store.get(key)?.gen ?? 0;   // 저장이 끝난 뒤의 세대 — 이 결과는 저장을 반영한다
+    return fetcher().then(rows => {
+      const cur = store.get(key);
+      if (cur && cur.gen === gen && cur.p === p) { cur.rows = rows; cur.at = Date.now(); cur.p = undefined; }
+      return rows;
+    }, err => {
+      const cur = store.get(key);
+      if (cur && cur.p === p) cur.p = undefined;
+      throw err;
+    });
   });
   store.set(key, { ...e, p: p as Promise<unknown[]>, forced: force });
   return p;
