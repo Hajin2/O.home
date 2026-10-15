@@ -23,6 +23,7 @@ import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 import { useSectionTitle, sectionHref, MAIN_SEC } from '@/lib/sectionStore';
 import { ConfirmModal } from '@/components/ui/Modal';
 import { DetailLayoutButton, detailLayoutOf, DETAIL_LAYOUT_CSS } from '@/components/chars/DetailLayout';   // 포크: 캐릭터별 상세 배치
+import { CharNav } from '@/components/chars/CharNav';   // 포크: 떠 있는 이동 버튼
 
 function CharDetailInner() {
   const { id } = useParams<{ id: string }>();
@@ -332,6 +333,8 @@ function CharDetailInner() {
           onClose={() => setArtCropOpen(null)}
           onApply={c => { saveArtCrop(c); setArtCropOpen(null); }} />
       )}
+      {/* 떠 있는 이동 버튼 — 맨 위로 · 이전/다음 캐릭터 · 목록 (포크) */}
+      <CharNav chars={chars} cur={ch} listHref={tt.href} />
     </section>
   );
 }
