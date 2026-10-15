@@ -469,3 +469,14 @@ Supabase 무료 요금제 전송량(egress)을 아끼려고. 화면에 보이는
 | `components/rels/RelMap.tsx` (포크 파일) | `moving` 상태 · `.relmap-stage.moving`에만 will-change |
 | `lib/blobStore.tsx` | `BlobImg`의 `<img>`에 `decoding="async"` 1곳 |
 | `components/ui/CropEditor.tsx` | 크롭 이미지 `<img>`에 `decoding="async"` 1곳 |
+
+## 34. 등록 직후 「캐릭터를 찾을 수 없습니다」 수정
+
+캐릭터를 등록하면 저장을 시작하자마자 상세 페이지로 넘어가는데, 상세 페이지가 저장이 끝나기 전에 목록을 받아 와 새 캐릭터가 없는 목록을 보고 「찾을 수 없습니다」로 멈췄다(실시간 알림도 페이지가 막 열린 순간에는 아직 연결 전이라 놓침). 캐릭터는 저장돼 있어서 새로고침하면 보였다.
+
+이제 어떤 표를 저장하는 동안 그 표를 읽으려는 화면은 **저장이 끝난 뒤에** 받는다(최대 8초까지만 기다림). 캐릭터뿐 아니라 로그·자관·게시글 등 「저장하고 바로 그 페이지로 이동」하는 모든 곳에 적용.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `lib/listCache.ts` (포크 파일) | `trackWrite` · 읽기 전에 그 표 저장이 끝나길 기다림 |
+| `lib/db.ts` | `syncList`를 저장 작업으로 알림(`trackWrite`) — 몇 줄 |
