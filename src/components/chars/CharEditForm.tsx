@@ -37,12 +37,14 @@ function ArtThumb({ item, crop }: { item: ArtItem; crop?: CropValue }) {
   return <CropImg src={src} crop={crop} />;
 }
 
-export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }: {
+export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds, worldChoices }: {
   initial: Character | null;               // null = 신규 등록
   onSave: (c: Character) => void;
   onCancel: () => void;
   auMode?: boolean;                        // AU 전용 편집 (v1.9) — 공개범위·회원권한은 base 소관이라 숨김
   existingIds?: string[];                  // 페이지 주소 중복 검사용 (v1.9 — 신규 등록)
+  /** 고를 수 있는 세계관 id (포크 — 세계관 편집 회원이 추가할 때). 있으면 「없음」 없이 이 중에서만 */
+  worldChoices?: string[];
 }) {
   const { fonts, familyOf } = useFonts();
   const { isAdmin } = useAuth();
@@ -55,7 +57,7 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
   const [slug, setSlug] = useState(initial?.slug ?? '');
   const [sub, setSub] = useState(initial?.sub ?? '');
   const worldsSrc = useWorldList();   // 소속 세계관 선택지
-  const [worldId, setWorldId] = useState(initial?.worldId ?? '');
+  const [worldId, setWorldId] = useState(initial?.worldId ?? worldChoices?.[0] ?? '');
   const [tagsText, setTagsText] = useState((initial?.tags ?? []).join(', '));   // 자유 태그
   const [color, setColor] = useState(initial?.color ?? '#5d636d');
   const [themeMode, setThemeMode] = useState<'default' | 'custom'>(initial?.themeMode ?? 'default');
@@ -332,7 +334,9 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds }:
             {/* 소속 세계관 — 하나만 고른다 (세계관 페이지의 소속 캐릭터 목록에 쓰임) */}
             {!auMode && (
               <KSelect value={worldId} onChange={setWorldId} placeholder="소속 세계관 (선택)"
-                options={[{ value: '', label: '소속 세계관 없음' }, ...worldsSrc.list.map(w => ({ value: w.id, label: w.name }))]} />
+                options={worldChoices
+                  ? worldsSrc.list.filter(w => worldChoices.includes(w.id)).map(w => ({ value: w.id, label: w.name }))
+                  : [{ value: '', label: '소속 세계관 없음' }, ...worldsSrc.list.map(w => ({ value: w.id, label: w.name }))]} />
             )}
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <span className="cp-lb">대표 테마색</span>

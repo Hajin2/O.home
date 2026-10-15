@@ -4,6 +4,7 @@
 import React, { Suspense } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { canEditRel, canEditChar, stampRelEditors } from '@/lib/charAccess';
 import { useLocalList } from '@/lib/postStore';
 import { Character, CHAR_SEED, Relation, REL_SEED, findByKey } from '@/lib/charStore';
 import { RelForm } from '@/components/rels/RelForm';
@@ -13,7 +14,7 @@ import { PageTitle, EditableDesc } from '@/components/ui/PageText';
 function RelEditInner() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const toast = useToast();
   const params = useSearchParams();
   const auId = params.get('au') ?? undefined;
@@ -24,10 +25,10 @@ function RelEditInner() {
   const rel = findByKey(rels, id);
   const auObj = auId ? rel?.aus.find(a => a.id === auId && a.id !== 'base') : undefined;
   if (!loaded) return <section className="page" />;
-  if (!isAdmin || !rel) {
+  if (!rel || !canEditRel(rel, chars, user?.id, isAdmin)) {
     return (
       <section className="page">
-        <div className="page-head"><PageTitle>EDIT</PageTitle><p>{!rel ? '자관을 찾을 수 없습니다' : '관리자 전용'}</p></div>
+        <div className="page-head"><PageTitle>EDIT</PageTitle><p>{!rel ? '자관을 찾을 수 없습니다' : '편집 권한이 없습니다'}</p></div>
       </section>
     );
   }
@@ -41,12 +42,12 @@ function RelEditInner() {
       <RelForm
         initial={rel}
         auId={auObj?.id}
-        myChars={chars.filter(c => c.own)}
+        myChars={isAdmin ? chars.filter(c => c.own) : chars.filter(c => canEditChar(c, user?.id, false))}
         memberNames={Object.fromEntries(rel.members.map(m => [m.charId, chars.find(c => c.id === m.charId)?.name ?? m.charId]))}
         onCancel={() => router.push(`/rels/${rel.id}`)}
         existingIds={rels.filter(r => r.id !== rel.id).flatMap(r => [r.id, ...(r.slug ? [r.slug] : [])])}
         onSave={v => {
-          setRels(rels.map(r => (r.id === rel.id ? {
+          setRels(stampRelEditors(rels.map(r => (r.id === rel.id ? {
             ...r,
             name: v.name, kind: v.kind, visibility: v.visibility,
             // 폰트는 AU 편집이면 그 AU에만 (v2.0 사용자 제보 — 여태 원본에 저장돼 전체가 같이 바뀌었다)
@@ -138,7 +139,7 @@ function RelEditInner() {
                   }
                   : {}),
               }),
-          } : r)));
+          } : r)), rels, chars));
           toast('저장되었습니다');
           router.push(`/rels/${rel.id}`);
         }}

@@ -1,9 +1,10 @@
 'use client';
 // EditableDesc 주입
 // 자관 리스트 (4.5) — 4:3 가로 썸네일 · 공개범위 3단계 · 멤버 색 점
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { useEditableWorlds, relEditorUids } from '@/lib/charAccess';
 import { useLocalList } from '@/lib/postStore';
 import { Relation, REL_SEED, Character, CHAR_SEED, relPath } from '@/lib/charStore';
 import { SearchBar } from '@/components/ui/Kit';
@@ -19,16 +20,31 @@ import { useCardSort, mergeOrder } from '@/lib/cardSort';
 export default function RelsPage() {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const { canAdd } = useEditableWorlds();   // 세계관 편집 회원도 자관 추가 (포크)
   const toast = useToast();
   const { editOn } = useMainStore();
   const [rels, setRels] = useLocalList<Relation>('ohome.rels.v1', REL_SEED);
-  const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
+  const [chars, , charsLoaded] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const [q, setQ] = useState('');
+  /* 관리자가 목록을 열면, 서버용 편집 회원 목록이 낡은 자관만 고쳐 저장한다 (포크) —
+     이 기능 전에 만든 자관이나 캐릭터 권한이 바뀐 뒤에도, 멤버 캐릭터 주인이 자관을 저장할 수 있게 */
+  useEffect(() => {
+    if (!isAdmin || !charsLoaded || !rels.length) return;
+    let changed = false;
+    const next = rels.map(r => {
+      const u = relEditorUids(r, chars);
+      if (JSON.stringify(u) === JSON.stringify(r.editorUids ?? [])) return r;
+      changed = true;
+      return { ...r, editorUids: u };
+    });
+    if (changed) setRels(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, charsLoaded, rels.length, chars]);
   const [tagSel, toggleTag, clearTags, tagMode, toggleMode] = useTagFilter();   // 자유 태그 필터
 
   const colorOf = (id: string) => chars.find(c => c.id === id)?.color ?? '#666';
   const visible = rels
-    .filter(r => isAdmin || r.visibility !== 'private')
+    .filter(r => isAdmin || r.visibility !== 'private' || (!!user && r.authorId === user.id))
     .filter(r => matchTags(r, tagSel, tagMode))
     .filter(r => !q || r.name.toLowerCase().includes(q.toLowerCase()) || tagMatches(r, q));
 
@@ -43,10 +59,10 @@ export default function RelsPage() {
         <div className="head-actions">
           <SearchBar onSearch={setQ} />
           <button className="btn btn-ghost" onClick={() => router.push('/rels/map')}>관계도</button>{/* 자관 관계도 (포크) */}
-          {isAdmin && <button className="btn btn-dark" onClick={() => router.push('/rels/new')}>＋ ADD RELATION</button>}
+          {canAdd && <button className="btn btn-dark" onClick={() => router.push('/rels/new')}>＋ ADD RELATION</button>}
         </div>
       </div>
-      <TagFilter counts={tagCounts(rels.filter(r => isAdmin || r.visibility !== 'private'))}
+      <TagFilter counts={tagCounts(rels.filter(r => isAdmin || r.visibility !== 'private' || (!!user && r.authorId === user.id)))}
         selected={tagSel} onToggle={toggleTag} onClear={clearTags} mode={tagMode} onToggleMode={toggleMode} />
       <div className="g3 rels-grid">
         {visible.map((r, i) => {
