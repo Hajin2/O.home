@@ -495,3 +495,14 @@ AU를 보는 중이면 그 AU에만 저장된다. AU에서 안 고르면(「원�
 |---|---|
 | `components/chars/DetailLayout.tsx` (새 파일) | 배치 고르기 버튼 · 배치 CSS · `detailLayoutOf` |
 | `app/chars/[id]/page.tsx` | import 1줄 · EDIT 옆에 `<DetailLayoutButton …/>` · `.profile-wrap`에 `lay-…` 클래스와 `<style>` 1줄 |
+
+## 36. 맨 위로 버튼 (사이트 전체)
+
+어느 페이지든 600px 넘게 내려가면 오른쪽 아래에 ↑ 버튼이 뜨고, 누르면 맨 위로 부드럽게 올라간다(캐릭터·로그 목록·게시판·갤러리·캐릭터 상세 등 전부). 페이지마다 따로 붙이지 않고 사이트 틀에 하나만 둠.
+- 띄우지 않는 곳: 로그 상세·자관 상세(자기 이동 버튼 줄에 ↑가 이미 있음), 역극·메모 보드·관계도(스크롤 개념이 다름)
+- BGM 플레이어를 가리지 않는 높이(휴대폰 아래 전폭 바 위로 올라감)
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `components/shell/ScrollTop.tsx` (새 파일) | 맨 위로 버튼 |
+| `app/layout.tsx` | import 1줄 · `<BgmPlayer />` 아래 `<ScrollTopButton />` 1줄 |

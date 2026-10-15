@@ -23,6 +23,7 @@ import { PageFrame } from '@/lib/pageRefresh';
 import { MenuGuard } from '@/components/shell/MenuGuard';
 import { ServerBoot } from '@/components/shell/ServerBoot';
 import { siteMeta } from '@/lib/siteMeta';
+import { ScrollTopButton } from '@/components/shell/ScrollTop';   // 포크: 맨 위로 버튼
 
 /**
  * 링크를 미리 읽어 가는 쪽(카톡·디스코드·검색)은 서버가 돌려준 HTML만 본다.
@@ -96,6 +97,8 @@ if(navigator.userAgent.indexOf('Whale/')>-1){document.documentElement.style.colo
                   <main id="appMain"><PageFrame><MenuGuard>{children}</MenuGuard></PageFrame></main>
                   {/* BGM 미니 플레이어 — 전역 상주, 페이지 이동에도 유지 (4.1) */}
                   <BgmPlayer />
+                  {/* 맨 위로 버튼 — 내려가면 오른쪽 아래에 (포크) */}
+                  <ScrollTopButton />
                   {/* 전역 커스텀 툴팁 — data-tip 요소 공통 (7장) */}
                   <TipLayer />
                   {/* 커스텀 마우스 커서 (5.1) */}
