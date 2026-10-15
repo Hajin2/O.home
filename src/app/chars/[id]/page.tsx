@@ -23,6 +23,7 @@ import { CroppedBlobImg, CropEditor, type CropValue } from '@/components/ui/Crop
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 import { useSectionTitle, sectionHref, MAIN_SEC } from '@/lib/sectionStore';
 import { ConfirmModal } from '@/components/ui/Modal';
+import { DetailLayoutButton, detailLayoutOf, DETAIL_LAYOUT_CSS } from '@/components/chars/DetailLayout';   // 포크: 캐릭터별 상세 배치
 
 function CharDetailInner() {
   const { id } = useParams<{ id: string }>();
@@ -150,6 +151,9 @@ function CharDetailInner() {
           {canEditChar(ch, user?.id, isAdmin) && (
             <button className="btn btn-dark" onClick={() => router.push(editHref)}>EDIT</button>
           )}
+          {canEditChar(ch, user?.id, isAdmin) && (!auKey || auRegistered) && (
+            <DetailLayoutButton ch={ch} auKey={auKey} chars={chars} setChars={setChars} />
+          )}
           {canDeleteChar(ch, user?.id, isAdmin) && <button className="btn btn-dark" onClick={() => setDelAsk(true)}>DELETE</button>}
         </div>
 
@@ -201,7 +205,8 @@ function CharDetailInner() {
           )}
         </div>
       ) : (
-      <div className="profile-wrap">
+      <div className={`profile-wrap lay-${detailLayoutOf(ch, auKey)}`}>
+        <style>{DETAIL_LAYOUT_CSS}</style>
         {/* 좌측 아이콘 탭 — AU면 그 AU의 탭 구성 */}
         <div className="side-icons">
           <button className={tab === 'basic' ? 'on' : ''} data-tip="기본 정보" onClick={() => pickTab('basic')}>☰</button>

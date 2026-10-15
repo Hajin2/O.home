@@ -480,3 +480,18 @@ Supabase 무료 요금제 전송량(egress)을 아끼려고. 화면에 보이는
 |---|---|
 | `lib/listCache.ts` (포크 파일) | `trackWrite` · 읽기 전에 그 표 저장이 끝나길 기다림 |
 | `lib/db.ts` | `syncList`를 저장 작업으로 알림(`trackWrite`) — 몇 줄 |
+
+## 35. 캐릭터별 상세 배치 (기본 · 반반 · 정보 넓게 · 정보만)
+
+캐릭터 상세 머리의 **LAYOUT** 버튼(관리자·편집 권한 회원)으로 그 캐릭터의 그림과 오른쪽 정보 너비를 고른다. 고르면 바로 저장되고 방문자도 같은 배치로 본다.
+- 기본: 지금처럼 그림 크게 · 정보 380px
+- 반반: 그림과 정보를 같은 너비로
+- 정보 넓게: 그림은 좁은 세로 띠, 정보를 크게
+- 정보만: 그림을 숨기고 정보만 넓게 (정보 안에 그림을 직접 꾸며 둔 캐릭터용)
+
+AU를 보는 중이면 그 AU에만 저장된다. AU에서 안 고르면(「원본 따르기」) 원본 캐릭터의 배치를 따른다. 휴대폰(960px 이하)은 원래처럼 위아래로 쌓이고, 「정보만」이면 그림만 숨긴다. 값은 캐릭터 정보 안 `detailLayout`(AU는 `auProfiles[키].detailLayout`) — 편집 화면에서 저장해도 지워지지 않는다. Supabase에서 할 일 없음.
+
+| 파일 | 바꾼 내용 |
+|---|---|
+| `components/chars/DetailLayout.tsx` (새 파일) | 배치 고르기 버튼 · 배치 CSS · `detailLayoutOf` |
+| `app/chars/[id]/page.tsx` | import 1줄 · EDIT 옆에 `<DetailLayoutButton …/>` · `.profile-wrap`에 `lay-…` 클래스와 `<style>` 1줄 |
