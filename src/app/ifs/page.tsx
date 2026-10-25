@@ -127,14 +127,16 @@ export default function IfPage() {
     return groups.filter(g => g.items.length || g.rel);
   };
 
-  const list = useMemo(() => {
+  // 검색 — 질문·상황·자관 이름 + 보이는 모든 반응(IF 반응·자관 문답 답변)의 캐릭터 이름·별명.
+  // 답변을 가린 자관(비공개 답변)은 이름으로도 찾히지 않게 한다
+  const list = (() => {
     const k = q.trim().toLowerCase();
+    const hit = (s?: string) => !!s && s.toLowerCase().includes(k);
     return cards
-      .filter(c => !k || c.title.toLowerCase().includes(k) || (c.post?.situation ?? '').toLowerCase().includes(k)
-        || c.refs.some(r => r.rel.name.toLowerCase().includes(k))
-        || (c.post && reactionsFor(reacts, c.post.id).some(r => r.name.toLowerCase().includes(k))))
+      .filter(c => !k || hit(c.title) || hit(c.post?.situation) || c.refs.some(r => hit(r.rel.name))
+        || groupsOf(c).some(g => !g.locked && g.items.some(it => hit(it.name) || hit(charOf(it.charId)?.name))))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [cards, reacts, q]);
+  })();
 
   const toggle = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -143,9 +145,8 @@ export default function IfPage() {
   const [pId, setPId] = useState<string | null>(null);
   const [pTitle, setPTitle] = useState('');
   const [pSit, setPSit] = useState('');
-  const [pBulk, setPBulk] = useState('');
-  const openNewPost = () => { setPId(null); setPTitle(''); setPSit(''); setPBulk(''); setPOpen(true); };
-  const openEditPost = (p: IfPost) => { setPId(p.id); setPTitle(p.title); setPSit(p.situation ?? ''); setPBulk(''); setPOpen(true); };
+  const openNewPost = () => { setPId(null); setPTitle(''); setPSit(''); setPOpen(true); };
+  const openEditPost = (p: IfPost) => { setPId(p.id); setPTitle(p.title); setPSit(p.situation ?? ''); setPOpen(true); };
   const newPost = (title: string, situation?: string): IfPost => ({
     id: newId(), title, situation, author: user?.nickname ?? '관리자', authorId: user?.id ?? 'admin',
     date: new Date().toISOString(), visibility: 'public',
@@ -166,7 +167,8 @@ export default function IfPage() {
     const cardId = p.id;
     setOpen(s => new Set(s).add(cardId));
     setPOpen(false);
-    if (parseReactions(pBulk).length) openAdd({ id: cardId, key: normQ(title), title, date: p.date, post: p, refs: same?.refs ?? [] }, pBulk);
+    // 만들자마자 반응 달기 창으로 — 하나씩 / 여러 줄 한 번에를 거기서 고른다 (안 달 거면 CANCEL)
+    openAdd({ id: cardId, key: normQ(title), title, date: p.date, post: p, refs: same?.refs ?? [] });
   };
   const removePost = (p: IfPost) => del.ask('이 IF를 삭제하시겠습니까?', () => {
     setPosts(posts.filter(x => x.id !== p.id));
@@ -401,21 +403,14 @@ export default function IfPage() {
       <Modal open={pOpen} onClose={() => setPOpen(false)} title={pId ? 'IF 수정' : '새 IF'} dirty
         actions={<>
           <button className="btn btn-ghost" onClick={() => setPOpen(false)}>CANCEL</button>
-          <button className="btn btn-dark" onClick={savePost}>{pId ? 'SAVE' : 'ADD'}</button>
+          <button className="btn btn-dark" onClick={savePost}>{pId ? 'SAVE' : 'ADD → 반응 달기'}</button>
         </>}>
         <div style={{ display: 'grid', gap: 10 }}>
           <label style={{ fontSize: 12, color: FAINT }}>질문 — 자관 문답에 같은 질문이 있으면 한 카드로 묶여요</label>
           <KInput placeholder="누군가 번호를 물어본다!" value={pTitle} onChange={e => setPTitle(e.target.value)} />
           <label style={{ fontSize: 12, color: FAINT }}>상황 (선택)</label>
           <KTextarea rows={2} placeholder="A : 너무 제 취향이라 그런데 번호 좀 주실 수 있을까요?ㅠㅠ" value={pSit} onChange={e => setPSit(e.target.value)} />
-          {!pId && (
-            <>
-              <label style={{ fontSize: 12, color: FAINT }}>반응 한 번에 넣기 (선택) — 한 줄에 「이름: 반응」 · ADD 하면 캐릭터 연결을 확인하는 창이 떠요</label>
-              <KTextarea rows={7} placeholder={'키이라: 무시\n<#찬박도태>\n찬: ㅎㅎ (재현이 번호 줌)\n박하: (귀찮아서 찬성이 번호 주고 감)'}
-                value={pBulk} onChange={e => setPBulk(e.target.value)} />
-              {pBulk.trim() && <span style={{ fontSize: 12, color: FAINT }}>반응 {parseReactions(pBulk).length}개를 알아봤어요</span>}
-            </>
-          )}
+          {!pId && <p className="hint" style={{ margin: 0 }}>ADD 하면 바로 반응 달기 창이 떠요 — 하나씩 / 여러 줄 한 번에 중에서 골라 달 수 있어요.</p>}
         </div>
       </Modal>
 
