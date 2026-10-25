@@ -157,6 +157,19 @@ export default function IfPage() {
     if (!title) { toast('질문을 입력해 주세요'); return; }
     if (pId) {
       setPosts(posts.map(p => p.id === pId ? { ...p, title, situation: pSit.trim() || undefined } : p));
+      // IF가 메인 — 같은 질문으로 묶여 있던 자관 질문 글도 같이 고친다 (안 그러면 글이 달라져 카드가 갈라진다)
+      const card = cards.find(c => c.post?.id === pId);
+      const ok = (card?.refs ?? []).filter(r => canEditRel(r.rel, chars, user?.id, isAdmin));
+      if (ok.length && card && card.title !== title) {
+        const hit = (relId: string, auId: string, no: number) => ok.some(r => r.rel.id === relId && r.auId === auId && r.entry.no === no);
+        const next = rels.map(rel => (!ok.some(r => r.rel.id === rel.id) ? rel : {
+          ...rel,
+          questions: (rel.questions ?? []).map(e => (hit(rel.id, 'base', e.no) ? { ...e, q: title } : e)),
+          aus: rel.aus.map(au => (au.id === 'base' || !au.questions ? au
+            : { ...au, questions: au.questions.map(e => (hit(rel.id, au.id, e.no) ? { ...e, q: title } : e)) })),
+        }));
+        setRels(stampRelEditors(next, rels, chars));
+      }
       setPOpen(false);
       return;
     }
@@ -170,11 +183,41 @@ export default function IfPage() {
     // 만들자마자 반응 달기 창으로 — 하나씩 / 여러 줄 한 번에를 거기서 고른다 (안 달 거면 CANCEL)
     openAdd({ id: cardId, key: normQ(title), title, date: p.date, post: p, refs: same?.refs ?? [] });
   };
-  const removePost = (p: IfPost) => del.ask('이 IF를 삭제하시겠습니까?', () => {
-    setPosts(posts.filter(x => x.id !== p.id));
-    // 지울 수 있는 반응만 함께 (남의 반응은 서버 규칙상 관리자만) · 자관 문답 답변은 자관에 그대로 남는다
-    setReacts(reacts.filter(r => !(r.ifId === p.id && mine(r.authorId))));
-  }, 'IF에 단 반응도 함께 삭제됩니다. 자관 문답에 저장된 답변은 자관에 그대로 남아요.');
+  /* ---------- 카드 삭제 — IF가 메인: IF 글 + 반응 + 같은 질문의 자관 문답(질문·답변)까지 전부 ----------
+     자관 질문을 지우는 건 자관을 고치는 일이라 그 자관을 고칠 수 있는 사람만 된다(서버 규칙).
+     권한 없는 자관이 섞여 있으면 그 자관 것만 남기고 알려 준다. */
+  const canDelCard = (c: Card) => isAdmin
+    || (c.post ? mine(c.post.authorId) : c.refs.length > 0 && c.refs.every(r => canEditRel(r.rel, chars, user?.id, isAdmin)));
+  const removeCard = (c: Card) => {
+    const relNames = [...new Set(c.refs.map(r => r.rel.name))];
+    del.ask(`《${c.title}》를 삭제하시겠습니까?`, () => {
+      if (c.post) {
+        const pid = c.post.id;
+        setPosts(posts.filter(x => x.id !== pid));
+        setReacts(reacts.filter(r => !(r.ifId === pid && mine(r.authorId))));
+      }
+      const ok = c.refs.filter(r => canEditRel(r.rel, chars, user?.id, isAdmin));
+      const kept = c.refs.length - ok.length;
+      if (ok.length) {
+        const gone = (relId: string, auId: string, no: number) => ok.some(r => r.rel.id === relId && r.auId === auId && r.entry.no === no);
+        const next = rels.map(rel => {
+          if (!ok.some(r => r.rel.id === rel.id)) return rel;
+          return {
+            ...rel,
+            questions: (rel.questions ?? []).filter(e => !gone(rel.id, 'base', e.no)),
+            aus: rel.aus.map(au => (au.id === 'base' || !au.questions ? au
+              : { ...au, questions: au.questions.filter(e => !gone(rel.id, au.id, e.no)) })),
+          };
+        });
+        setRels(stampRelEditors(next, rels, chars));
+        // 그 질문의 자관 답변 — 지울 수 있는 것만 (남의 답변은 서버 규칙상 관리자만. 질문이 없어지면 어디에도 안 보인다)
+        setQaRows(qaRows.filter(r => !(gone(r.relId, r.auId, r.no) && (isAdmin || mine(r.authorId)))));
+      }
+      if (kept) toast(`편집 권한이 없는 자관 ${kept}곳의 질문은 남겨 뒀어요 — 그 자관 주인이 지울 수 있어요`);
+    }, relNames.length
+      ? <>IF 반응과 함께 <b>{relNames.join(', ')}</b> 자관의 QUESTIONS 탭에서도 이 질문과 답변이 삭제됩니다. 복구할 수 없습니다.</>
+      : 'IF에 단 반응도 함께 삭제됩니다. 복구할 수 없습니다.');
+  };
 
   /* ---------- 반응 달기 (한 줄 / 여러 줄) ---------- */
   const [rCard, setRCard] = useState<Card | null>(null);
@@ -385,12 +428,10 @@ export default function IfPage() {
                   {groups.length === 0 && <p className="hint" style={{ marginTop: 12 }}>아직 반응이 없어요</p>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
                     {canWrite && <button className="btn btn-ghost" onClick={() => openAdd(c)}>＋ 반응 달기</button>}
-                    {c.post && mine(c.post.authorId) && (
-                      <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, fontSize: 12, color: FAINT }}>
-                        <span className="fx" style={{ cursor: 'pointer' }} onClick={() => openEditPost(c.post!)}>질문 수정</span>
-                        <span className="fx" style={{ cursor: 'pointer' }} onClick={() => removePost(c.post!)}>삭제</span>
-                      </span>
-                    )}
+                    <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, fontSize: 12, color: FAINT }}>
+                      {c.post && mine(c.post.authorId) && <span className="fx" style={{ cursor: 'pointer' }} onClick={() => openEditPost(c.post!)}>질문 수정</span>}
+                      {canDelCard(c) && <span className="fx" style={{ cursor: 'pointer' }} onClick={() => removeCard(c)}>삭제</span>}
+                    </span>
                   </div>
                 </div>
               )}
