@@ -8,7 +8,7 @@
 //     그 자관에 질문이 아직 없으면: 자관을 고칠 수 있는 사람은 질문까지 추가, 아니면 IF 반응으로 저장
 //     (IF 반응으로 저장한 것도 이 화면의 그 자관 묶음 안, 자관 페이지의 「IF 썰」 칸에 보인다)
 // 회원 누구나 질문·반응 작성 · 자기 글은 자기가 수정/삭제 (관리자는 전부)
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useLocalList, newId } from '@/lib/postStore';
 import {
@@ -151,6 +151,17 @@ export default function IfPage() {
     setOpen(s => { const n = new Set(s); n.delete(id); return n; });
     requestAnimationFrame(() => document.getElementById(`if-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
   };
+
+  // STORY 주제에서 「IF 보러 가기」로 오면 (?q=질문) — 그 질문으로 찾고 카드를 펼쳐 둔다
+  useEffect(() => {
+    if (!loaded) return;
+    const qq = new URLSearchParams(window.location.search).get('q');
+    if (!qq) return;
+    setQ(qq);
+    const c = cards.find(x => x.key === normQ(qq));
+    if (c) setOpen(s => new Set(s).add(c.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loaded]);
 
   const toggle = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 

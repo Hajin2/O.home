@@ -136,6 +136,11 @@ export const COLLECTION_OF: Record<string, string> = {
   // IF 썰 (포크) — 질문과 반응을 따로 (반응을 질문 안에 두면 남의 질문에 반응을 못 단다)
   'ohome.ifs.v1': 'if_posts',
   'ohome.ifreacts.v1': 'if_reactions',
+  // STORY (포크) — 에피소드 · 주제 · 카테고리 · 댓글
+  'ohome.story.v1': 'story_eps',
+  'ohome.storytopics.v1': 'story_topics',
+  'ohome.storycats.v1': 'story_cats',
+  'ohome.storycmts.v1': 'story_comments',
 };
 
 export const CONTENT_COLLECTIONS = Object.values(COLLECTION_OF);

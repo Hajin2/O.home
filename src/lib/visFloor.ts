@@ -33,6 +33,10 @@ const AREA: Record<string, { kind?: SectionKind; href?: string; board?: boolean 
   memos: { href: '/memo' },
   if_posts: { href: '/ifs' },       // IF 썰 (포크)
   if_reactions: { href: '/ifs' },
+  story_eps: { href: '/story' },    // STORY (포크)
+  story_topics: { href: '/story' },
+  story_cats: { href: '/story' },
+  story_comments: { href: '/story' },
   rp_rooms: { href: '/rp' },
   characters: { kind: 'chars' },
   relations: { href: '/rels' },

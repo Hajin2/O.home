@@ -4,6 +4,7 @@
 // AU 선택 시 프로필 전체(이름·스펙·아트·탭·소개)가 그 AU의 값으로 전환 (charWithAu) —
 // 편집은 EDIT → /chars/[id]/edit?au= 전용 페이지에서 새 프로필처럼 작성 (v1.9 사용자 확정)
 import { CharLogs } from '@/components/chars/CharLogs';
+import { CharStories } from '@/components/story/StoryPanels';   // STORY (포크)
 import { TagList } from '@/components/ui/TagList';
 import { CharWorld } from '@/components/worlds/CharWorld';
 import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react';
@@ -303,6 +304,7 @@ function CharDetailInner() {
               </dl>
               <div className="prose" dangerouslySetInnerHTML={{ __html: basicHtml }} />
               <CharLogs charId={eff.id} />
+              <CharStories charId={eff.id} />
             </>
           ) : (
             <>
