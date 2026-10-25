@@ -20,6 +20,7 @@ import { getSetting } from '@/lib/settingStore';
 import { useMembers } from '@/lib/members';
 import { isServerMode } from '@/lib/backend';
 import { Pager } from '@/components/ui/Kit';
+import { BulkGrant } from '@/components/chars/BulkGrant';   // 포크: 권한 한 번에
 
 const PER = 15;
 
@@ -32,7 +33,7 @@ export default function MemberDetailPage() {
   const [guestEntries] = useLocalList<GuestEntry>('ohome.guest.v1', GUEST_SEED);
   // 댓글은 글과 따로 저장된다 (v2.0)
   const [cmtRows] = useLocalList<CommentRow>(COMMENT_KEY, COMMENT_SEED);
-  const [chars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
+  const [chars, setChars] = useLocalList<Character>('ohome.chars.v1', CHAR_SEED);
   const { boards } = useBoards();
   const members = useMembers();
 
@@ -107,6 +108,7 @@ export default function MemberDetailPage() {
 
         {/* 연동된 캐릭터 (3차 회원-캐릭터 연결) */}
         <h3 style={{ marginTop: 20 }}>연동된 캐릭터</h3>
+        {member.role !== 'admin' && <BulkGrant memberId={member.id} memberName={member.nickname} chars={chars} setChars={setChars} />}
         {linked.length ? (
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 8 }}>
             {linked.map(({ c, level }) => (

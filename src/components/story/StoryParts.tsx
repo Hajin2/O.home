@@ -279,8 +279,8 @@ function StoryComments({ ctx, ep }: { ctx: StoryCtx; ep: StoryEp }) {
           {ctx.user ? (
             <div style={{ display: 'flex', gap: 6, marginTop: 6, alignItems: 'flex-end' }}>
               <KTextarea rows={1} placeholder={replyTo ? '답글 달기' : '댓글 달기'} value={text}
-                onChange={e => setText(e.target.value)} style={{ flex: 1, minHeight: 38 }} />
-              <button type="button" className="btn btn-dark" onClick={add}>ADD</button>
+                onChange={e => setText(e.target.value)} style={{ flex: 1, minHeight: 42, padding: '10px 13px', lineHeight: 1.6 }} />
+              <button type="button" className="btn btn-dark" onClick={add} style={{ height: 42, flex: 'none', justifyContent: 'center' }}>ADD</button>
             </div>
           ) : <p className="hint">댓글은 로그인 후 달 수 있어요</p>}
         </div>
