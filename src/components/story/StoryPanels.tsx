@@ -64,7 +64,7 @@ export function RelStoryPanel({ rel }: { rel: Relation }) {
   }, [eps.list, rel.id]);
   if (!eps.loaded || rows.length === 0) return null;
   return (
-    <div className="panel widget" style={{ marginTop: 16 }}>
+    <div className="panel widget" style={{ marginTop: 16, maxWidth: 1010, marginLeft: 'auto', marginRight: 'auto' }}>
       <h4>
         <span>STORY <span style={{ letterSpacing: 0, color: FAINT, marginLeft: 6 }}>작중 시간순 · {rows.length}</span></span>
         <span className="more" onClick={() => router.push(`/story/rel/${rel.id}`)}>전체 타임라인 ›</span>

@@ -23,7 +23,7 @@ export function RelIfPanel({ rel, chars }: { rel: Relation; chars: Character[] }
   }, [posts, reacts, rel.id]);
   if (!groups.length) return null;
   return (
-    <div className="panel widget" style={{ marginTop: 16 }}>
+    <div className="panel widget" style={{ marginTop: 16, maxWidth: 1010, marginLeft: 'auto', marginRight: 'auto' }}>
       <h4>IF 썰 <span className="more" onClick={() => router.push('/ifs')}>더보기 ›</span></h4>
       {groups.map(({ p, rs }) => (
         <div key={p.id} style={{ borderTop: `1px solid ${LINE}` }}>
