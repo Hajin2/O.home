@@ -128,6 +128,11 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
       .slice(0, 8);
   }, [ctx.topics, ctx.eps, f.topic]);
   const curIf = topicHit?.ifQ || f.ifQ;
+  // 기존 주제를 고르면(이름이 같아지면) 카테고리 칸을 그 주제 것으로 맞춘다 — 바꾸면 주제 전체가 바뀐다
+  useEffect(() => {
+    if (topicHit) setF(x => ({ ...x, catId: topicHit.catId ?? '' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicHit?.id]);
   const ifSug = curIf ? [] : ifMatches(f.topic, ifTitles).filter(t => !ifNo.includes(t));
   const rel = ctx.relOf(f.relId);
   const lane = laneOf(ctx.eps, f.relId || undefined, f.kind, edit?.id);
@@ -203,8 +208,8 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
         authorId: user.id, editorUids: ctx.memberIds, date: now, visibility: 'member',
       } as StoryTopic;
       topics = [...topics, topic];
-    } else if (f.ifQ && !topic.ifQ) {
-      const t: StoryTopic = { ...topic, ifQ: f.ifQ, editorUids: ctx.memberIds };
+    } else if ((f.ifQ && !topic.ifQ) || (f.catId || undefined) !== topic.catId) {
+      const t: StoryTopic = { ...topic, ifQ: topic.ifQ || f.ifQ || undefined, catId: f.catId || undefined, editorUids: ctx.memberIds };
       topics = topics.map(x => (x.id === t.id ? t : x));
       topic = t;
     }
@@ -374,16 +379,16 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
                 )}
               </div>
               <div style={FIELD}>
-                <span style={LBL}>카테고리 {topicHit && <span style={{ fontWeight: 400, color: FAINT }}>— 기존 주제는 주제 화면의 ✎에서 바꿔요</span>}</span>
-                {topicHit ? (
-                  <div style={{ fontSize: 13 }}>{ctx.catOf(topicHit.catId)?.name ?? '미분류'}</div>
-                ) : (
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <span style={chip(!f.catId)} onClick={() => set({ catId: '' })}>미분류</span>
-                    {ctx.cats.map(c => <span key={c.id} style={chip(f.catId === c.id)} onClick={() => set({ catId: c.id })}>{c.name}</span>)}
-                  </div>
-                )}
-                {!topicHit && <span style={{ fontSize: 11.5, color: FAINT }}>카테고리 추가·이름 바꾸기는 STORY 메인의 「✎ 카테고리」에서</span>}
+                <span style={LBL}>카테고리</span>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <span style={chip(!f.catId)} onClick={() => set({ catId: '' })}>미분류</span>
+                  {ctx.cats.map(c => <span key={c.id} style={chip(f.catId === c.id)} onClick={() => set({ catId: c.id })}>{c.name}</span>)}
+                </div>
+                <span style={{ fontSize: 11.5, color: FAINT }}>
+                  {topicHit && (f.catId || undefined) !== topicHit.catId
+                    ? <>카테고리는 주제에 붙어 있어요 — 「{topicHit.name}」의 다른 에피소드도 같이 바뀌어요</>
+                    : '카테고리 추가·이름 바꾸기는 STORY 메인의 「✎ 카테고리」에서'}
+                </span>
               </div>
 
               <div style={{ ...FIELD, gridColumn: '1 / -1' }}>
