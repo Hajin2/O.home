@@ -180,8 +180,6 @@ export default function IfPage() {
     const cardId = p.id;
     setOpen(s => new Set(s).add(cardId));
     setPOpen(false);
-    // 만들자마자 반응 달기 창으로 — 하나씩 / 여러 줄 한 번에를 거기서 고른다 (안 달 거면 CANCEL)
-    openAdd({ id: cardId, key: normQ(title), title, date: p.date, post: p, refs: same?.refs ?? [] });
   };
   /* ---------- 카드 삭제 — IF가 메인: IF 글 + 반응 + 같은 질문의 자관 문답(질문·답변)까지 전부 ----------
      자관 질문을 지우는 건 자관을 고치는 일이라 그 자관을 고칠 수 있는 사람만 된다(서버 규칙).
@@ -444,14 +442,14 @@ export default function IfPage() {
       <Modal open={pOpen} onClose={() => setPOpen(false)} title={pId ? 'IF 수정' : '새 IF'} dirty
         actions={<>
           <button className="btn btn-ghost" onClick={() => setPOpen(false)}>CANCEL</button>
-          <button className="btn btn-dark" onClick={savePost}>{pId ? 'SAVE' : 'ADD → 반응 달기'}</button>
+          <button className="btn btn-dark" onClick={savePost}>{pId ? 'SAVE' : 'ADD'}</button>
         </>}>
         <div style={{ display: 'grid', gap: 10 }}>
           <label style={{ fontSize: 12, color: FAINT }}>질문 — 자관 문답에 같은 질문이 있으면 한 카드로 묶여요</label>
           <KInput placeholder="누군가 번호를 물어본다!" value={pTitle} onChange={e => setPTitle(e.target.value)} />
           <label style={{ fontSize: 12, color: FAINT }}>상황 (선택)</label>
           <KTextarea rows={2} placeholder="A : 너무 제 취향이라 그런데 번호 좀 주실 수 있을까요?ㅠㅠ" value={pSit} onChange={e => setPSit(e.target.value)} />
-          {!pId && <p className="hint" style={{ margin: 0 }}>ADD 하면 바로 반응 달기 창이 떠요 — 하나씩 / 여러 줄 한 번에 중에서 골라 달 수 있어요.</p>}
+          {!pId && <p className="hint" style={{ margin: 0 }}>반응은 질문을 만든 뒤 카드의 ＋ 반응 달기로 달아요.</p>}
         </div>
       </Modal>
 
