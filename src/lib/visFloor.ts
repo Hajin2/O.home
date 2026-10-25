@@ -31,6 +31,8 @@ const AREA: Record<string, { kind?: SectionKind; href?: string; board?: boolean 
   threads: { kind: 'threads' },
   guestbook: { href: '/guest' },
   memos: { href: '/memo' },
+  if_posts: { href: '/ifs' },       // IF 썰 (포크)
+  if_reactions: { href: '/ifs' },
   rp_rooms: { href: '/rp' },
   characters: { kind: 'chars' },
   relations: { href: '/rels' },

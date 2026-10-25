@@ -133,6 +133,9 @@ export const COLLECTION_OF: Record<string, string> = {
   // 알림 — 기기 보관이던 것을 서버로 (v2.0 포크 제보 「알림이 안 와요」).
   // 행 주인(authorId)을 받는 사람으로 적어, 받는 사람 계정이 어느 기기에서나 받아 간다
   'ohome.notif.v1': 'notifications',
+  // IF 썰 (포크) — 질문과 반응을 따로 (반응을 질문 안에 두면 남의 질문에 반응을 못 단다)
+  'ohome.ifs.v1': 'if_posts',
+  'ohome.ifreacts.v1': 'if_reactions',
 };
 
 export const CONTENT_COLLECTIONS = Object.values(COLLECTION_OF);

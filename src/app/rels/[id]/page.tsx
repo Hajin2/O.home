@@ -35,6 +35,11 @@ import { CroppedBlobImg, CropEditor, type CropValue } from '@/components/ui/Crop
 import { Lightbox } from '@/components/ui/Lightbox';
 import { useToast } from '@/components/ui/Toast';
 import { PageTitle } from '@/components/ui/PageText';
+import { RelIfPanel } from '@/components/ifs/RelIfPanel';   // IF 썰 (포크)
+
+/** 타임라인·문답 탭 줄 버튼 (포크) — 흰 버튼은 테두리(1.5px)가 높이에 더해져 검은 버튼보다 3px 커서
+ *  한 줄에 놓으면 들쭉날쭉했다. 테두리를 높이 안에 넣어 모두 35px로 맞춘다 */
+const TAB_BTN: React.CSSProperties = { height: 35, padding: '0 14px', fontSize: 11.5, boxSizing: 'border-box', whiteSpace: 'nowrap' };
 
 /** 전신 이미지 — 비율 유지, 하단 정렬, 크기 %는 자관 수정 미리보기에서 지정 (v1.9) */
 // 전신 그림자는 「그림자 직접 지정」의 색·강도를 따른다 (v2.0 사용자 요청) — 자관명 그림자와 같은 설정
@@ -1124,33 +1129,33 @@ export default function RelDetailPage() {
               {/* 이 줄의 버튼은 홈 공통 버튼과 같은 세로 크기(35px)로 — 탭 줄에서만 작아 보이던 것 */}
               {tab === 'tl' && auTimeline.length > 1 && (
                 <button className={`btn ${tlSort ? 'btn-accent' : 'btn-ghost'}`}
-                  style={{ height: 35, padding: '0 14px', fontSize: 11.5 }}
+                  style={TAB_BTN}
                   onClick={() => setTlSort(v => !v)}>
                   <span className="lb-pc">{tlSort ? '정렬 완료' : '⠿ 정렬'}</span>
                   <span className="lb-m">⠿</span>
                 </button>
               )}
               {tab === 'tl'
-                ? <button className="btn btn-dark" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} data-tip="기록 추가" onClick={() => setTlOpen(true)}><span className="lb-pc">＋ ADD RECORD</span><span className="lb-m">＋</span></button>
+                ? <button className="btn btn-dark" style={TAB_BTN} data-tip="기록 추가" onClick={() => setTlOpen(true)}><span className="lb-pc">＋ ADD RECORD</span><span className="lb-m">＋</span></button>
                 : <>
-                  <button className="btn btn-ghost" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} data-tip="질문 리스트 추가" onClick={() => setQsetOpen(true)}><span className="lb-pc">＋ 질문 리스트</span><span className="lb-m">≡</span></button>
+                  <button className="btn btn-ghost" style={TAB_BTN} data-tip="질문 리스트 추가" onClick={() => setQsetOpen(true)}><span className="lb-pc">＋ 질문 리스트</span><span className="lb-m">≡</span></button>
                   {/* 되돌리기는 오른쪽 질문 리스트에서 우클릭 (v2.0 사용자 요청) — 여기엔 건너뛰기만 */}
                   {curQa && (
-                    <button className="btn btn-ghost" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }}
+                    <button className="btn btn-ghost" style={TAB_BTN}
                       data-tip="이 질문을 아주 버리고 다음 질문으로 — 다시 나오지 않음 (되돌리려면 오른쪽 리스트에서 우클릭)"
                       onClick={skipQuestion}><span className="lb-pc">질문 건너뛰기</span><span className="lb-m">⏭</span></button>
                   )}
                   {/* 대기 풀에서 랜덤 출제 (v1.9) — 리스트를 넣어도 자동 출제되지 않으므로(v2.0)
                       아직 받은 질문이 없을 때는 「질문 받기」로 문구를 바꿔 이 버튼이 시작점임을 알린다 */}
                   {auQaPool.length > 0 && (
-                    <button className={curQa ? 'btn btn-ghost' : 'btn btn-dark'} style={{ height: 35, padding: '0 14px', fontSize: 11.5 }}
+                    <button className={curQa ? 'btn btn-ghost' : 'btn btn-dark'} style={TAB_BTN}
                       data-tip={`대기 질문 ${auQaPool.length}개`}
                       onClick={drawNextQuestion}>
                       <span className="lb-pc">{curQa ? '완료 — 다음 질문' : '질문 받기'}</span>
                       <span className="lb-m">↻</span>
                     </button>
                   )}
-                  <button className="btn btn-dark" style={{ height: 35, padding: '0 14px', fontSize: 11.5 }} data-tip="질문 추가" onClick={() => setQOpen(true)}><span className="lb-pc">＋ ADD QUESTION</span><span className="lb-m">＋</span></button>
+                  <button className="btn btn-dark" style={TAB_BTN} data-tip="질문 추가" onClick={() => setQOpen(true)}><span className="lb-pc">＋ 질문 추가</span><span className="lb-m">＋</span></button>
                 </>}
             </span>
           )}
@@ -1314,6 +1319,9 @@ export default function RelDetailPage() {
           </div>
         )}
       </div>
+
+      {/* IF 썰 (포크) — IF에서 이 자관으로 달았지만 자관 문답에 못 들어간 반응. 없으면 칸도 없음 */}
+      <RelIfPanel rel={rel} chars={chars} />
 
       {/* 역극 · 로그 연동 리스트 (4.5) — 역극: 내 참여 방 + 공개 전환된 완결 방.
           AU마다 숨길 수 있다 (v2.0 사용자 요청 — AU 관리의 체크박스). 둘 다 숨기면 칸 자체가 없다 */}
