@@ -37,7 +37,7 @@ export function RelIfPanel({ rel, chars }: { rel: Relation; chars: Character[] }
             <div style={{ padding: '0 2px 8px' }}>
               {rs.map(r => {
                 const ch = r.charId ? chars.find(c => c.id === r.charId) : undefined;
-                return <ReactLine key={r.id} name={r.name} text={r.text} ch={ch} note={ch && r.name !== ch.name ? r.name : undefined} />;
+                return <ReactLine key={r.id} name={r.name} text={r.text} ch={ch} />;
               })}
             </div>
           )}

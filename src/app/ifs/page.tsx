@@ -21,7 +21,7 @@ import {
 } from '@/lib/ifStore';
 import { Face, CharPicker, guessChar, ReactLine, normQ, FAINT, LINE } from '@/components/ifs/IfParts';
 import { Modal, useConfirmDelete } from '@/components/ui/Modal';
-import { KInput, KTextarea, KSelect } from '@/components/ui/Kit';
+import { KInput, KTextarea, KSelect, Pager } from '@/components/ui/Kit';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 import { useToast } from '@/components/ui/Toast';
 
@@ -35,7 +35,7 @@ interface Item {
   ifr?: IfReaction;                       // IF 반응
   qaRowId?: string; legacy?: boolean;     // 자관 문답 답변 (분리 행 / 옛 자관 안)
 }
-interface Group { key: string; label?: string; rel?: Relation; locked?: boolean; items: Item[] }
+interface Group { key: string; label?: string; rel?: Relation; locked?: boolean; items: Item[]; refs?: QaRef[] }
 type Row = { name: string; text: string; charId?: string; relId?: string; group?: string };
 
 export default function IfPage() {
@@ -49,6 +49,7 @@ export default function IfPage() {
   const [qaRows, setQaRows] = useLocalList<QaAnswerRow>(QA_KEY, QA_SEED);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [q, setQ] = useState('');
+  const [page, setPage] = useState(1);
 
   const canWrite = !!user;
   const mine = (authorId?: string) => isAdmin || (!!user && !!authorId && authorId === user.id);
@@ -111,7 +112,7 @@ export default function IfPage() {
       if (c.refs.findIndex(x => x.rel.id === ref.rel.id) === i) {
         ifrs.filter(r => r.relId === ref.rel.id).forEach(r => { items.push(ifItem(r)); used.add(r.id); });
       }
-      groups.push({ key: `${ref.rel.id}|${ref.auId}`, label: ref.rel.name + (ref.auLabel ? ` · ${ref.auLabel}` : ''), rel: ref.rel, locked, items });
+      groups.push({ key: `${ref.rel.id}|${ref.auId}`, label: ref.rel.name + (ref.auLabel ? ` · ${ref.auLabel}` : ''), rel: ref.rel, locked, items, refs: [ref] });
     });
     // 나머지 IF 반응 — 묶음 이름별(처음 나온 순서), 묶음 없는 건 맨 앞
     ifrs.filter(r => !used.has(r.id)).forEach(r => {
@@ -137,6 +138,19 @@ export default function IfPage() {
         || groupsOf(c).some(g => !g.locked && g.items.some(it => hit(it.name) || hit(charOf(it.charId)?.name))))
       .sort((a, b) => b.date.localeCompare(a.date));
   })();
+  // 한 페이지 10개 — 넘으면 아래 페이지 번호로 (게시판과 같은 방식)
+  const PER_PAGE = 10;
+  const pageCount = Math.max(1, Math.ceil(list.length / PER_PAGE));
+  const curPage = Math.min(page, pageCount);
+  const shown = list.slice((curPage - 1) * PER_PAGE, curPage * PER_PAGE);
+  /** 화면 맨 위로 — 스크롤은 페이지 전체가 아니라 #appMain 안에서 일어난다 */
+  const toTop = () => (document.getElementById('appMain') ?? window).scrollTo({ top: 0, behavior: 'smooth' });
+  const goPage = (n: number) => { setPage(n); toTop(); };
+  /** 카드 접기 — 길게 펼친 카드 아래에서 누르면 접고 그 카드 머리로 돌아간다 */
+  const collapse = (id: string) => {
+    setOpen(s => { const n = new Set(s); n.delete(id); return n; });
+    requestAnimationFrame(() => document.getElementById(`if-${id}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+  };
 
   const toggle = (id: string) => setOpen(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
@@ -217,6 +231,25 @@ export default function IfPage() {
       : 'IF에 단 반응도 함께 삭제됩니다. 복구할 수 없습니다.');
   };
 
+  /** 이 카드에서 자관 하나만 빼기 — 그 자관 QUESTIONS 탭의 이 질문 + 답변 + 그 자관으로 단 IF 반응 */
+  const removeRelGroup = (c: Card, g: Group) => {
+    const refs = g.refs ?? [];
+    if (!g.rel || !refs.length) return;
+    const rel = g.rel;
+    del.ask(`「${g.label}」 자관에서 이 질문을 뺄까요?`, () => {
+      const gone = (relId: string, auId: string, no: number) => refs.some(r => r.rel.id === relId && r.auId === auId && r.entry.no === no);
+      const next = rels.map(r => (r.id !== rel.id ? r : {
+        ...r,
+        questions: (r.questions ?? []).filter(e => !gone(r.id, 'base', e.no)),
+        aus: r.aus.map(au => (au.id === 'base' || !au.questions ? au
+          : { ...au, questions: au.questions.filter(e => !gone(r.id, au.id, e.no)) })),
+      }));
+      setRels(stampRelEditors(next, rels, chars));
+      setQaRows(qaRows.filter(r => !(gone(r.relId, r.auId, r.no) && (isAdmin || mine(r.authorId)))));
+      if (c.post) setReacts(reacts.filter(r => !(r.ifId === c.post!.id && r.relId === rel.id && mine(r.authorId))));
+    }, <>그 자관의 QUESTIONS 탭에서도 이 질문과 답변이 삭제됩니다. 다른 자관과 IF 반응은 그대로 남아요.</>);
+  };
+
   /* ---------- 반응 달기 (한 줄 / 여러 줄) ---------- */
   const [rCard, setRCard] = useState<Card | null>(null);
   const [rEdit, setREdit] = useState<Item | null>(null);
@@ -233,7 +266,7 @@ export default function IfPage() {
   }
   const openEdit = (card: Card, it: Item) => {
     setRCard(card); setREdit(it); setRMode('one'); setRText(it.text);
-    setRChar(it.charId ?? ''); setRName(it.ifr ? (it.charId && it.ifr.name === charOf(it.charId)?.name ? '' : it.ifr.name) : '');
+    setRChar(it.charId ?? ''); setRName(it.ifr && !it.charId ? it.ifr.name : '');
     setRRel(it.ifr?.relId ?? '');
   };
   const bulkRows = useMemo(() => parseReactions(rBulk), [rBulk]);
@@ -311,7 +344,7 @@ export default function IfPage() {
         setQaRows(qaRows.map(r => (r.id === rEdit.qaRowId ? { ...r, text } : r)));
       } else if (rEdit.ifr) {
         const ch = sortedChars.find(c => c.id === rChar);
-        const name = rName.trim() || ch?.name || rEdit.ifr.name;
+        const name = ch?.name || rName.trim() || rEdit.ifr.name;
         const rel = rels.find(x => x.id === rRel);
         setReacts(reacts.map(r => (r.id === rEdit.ifr!.id ? { ...r, name, text, charId: ch?.id, relId: rel?.id, group: rel?.name } : r)));
       }
@@ -321,10 +354,10 @@ export default function IfPage() {
     let rows: Row[];
     if (rMode === 'many') {
       if (!bulkRows.length) { toast('「이름: 반응」 형식의 줄을 찾지 못했어요'); return; }
-      rows = bulkRows.map(r => ({ ...r, charId: mapOf(r.name, r.group) || undefined, relId: r.group ? relByName.get(r.group)?.id : undefined }));
+      rows = bulkRows.map(r => { const cid = mapOf(r.name, r.group) || undefined; return { ...r, name: charOf(cid)?.name ?? r.name, charId: cid, relId: r.group ? relByName.get(r.group)?.id : undefined }; });
     } else {
       const ch = sortedChars.find(c => c.id === rChar);
-      const name = rName.trim() || ch?.name || '';
+      const name = ch?.name || rName.trim();
       if (!name) { toast('캐릭터를 고르거나 이름을 입력해 주세요'); return; }
       if (!rText.trim()) { toast('반응을 입력해 주세요'); return; }
       rows = [{ name, text: rText.trim(), charId: ch?.id, relId: rRel || undefined }];
@@ -353,19 +386,19 @@ export default function IfPage() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <KInput placeholder="질문·자관·캐릭터 이름 검색" value={q} onChange={e => setQ(e.target.value)} style={{ maxWidth: 260 }} />
+        <KInput placeholder="질문·자관·캐릭터 이름 검색" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} style={{ maxWidth: 260 }} />
       </div>
 
       {list.length === 0 && <p className="hint">{q ? '찾는 IF가 없어요' : '아직 IF가 없어요 — ＋ IF로 첫 질문을 올려 보세요'}</p>}
 
       <div style={{ display: 'grid', gap: 10 }}>
-        {list.map(c => {
+        {shown.map(c => {
           const isOpen = open.has(c.id);
           const groups = groupsOf(c);
           const all = groups.flatMap(g => (g.locked ? [] : g.items));
           const relNames = [...new Set(c.refs.map(r => r.rel.name))];
           return (
-            <div key={c.id} className="panel if-card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div key={c.id} id={`if-${c.id}`} className="panel if-card" style={{ padding: 0, overflow: 'hidden', scrollMarginTop: 12 }}>
               <div onClick={() => toggle(c.id)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', cursor: 'pointer' }}>
                 <span style={{ fontSize: 12, color: FAINT, transform: isOpen ? 'rotate(90deg)' : 'none', transition: '.15s' }}>▶</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -394,7 +427,7 @@ export default function IfPage() {
                       {c.post.situation}
                     </div>
                   )}
-                  {groups.map(g => (
+                  {groups.filter(g => !(g.refs && !g.locked && g.items.length === 0)).map(g => (
                     <div key={g.key} style={{ marginTop: 10 }}>
                       {g.label && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 2px' }}>
@@ -403,17 +436,20 @@ export default function IfPage() {
                           </span>
                           {g.rel && c.refs.some(r => r.rel.id === g.rel!.id) && <span style={{ fontSize: 10.5, color: FAINT }}>자관 문답</span>}
                           <span style={{ flex: 1, height: 1, background: LINE }} />
+                          {g.refs && g.rel && canEditRel(g.rel, chars, user?.id, isAdmin) && (
+                            <span className="fx" data-tip="이 자관에서 질문 빼기" style={{ cursor: 'pointer', fontSize: 12, color: FAINT, padding: '0 2px' }}
+                              onClick={() => removeRelGroup(c, g)}>✕</span>
+                          )}
                         </div>
                       )}
                       {g.locked
                         ? <p className="hint" style={{ margin: '6px 0' }}>비공개 답변</p>
                         : g.items.map(it => {
                           const ch = charOf(it.charId);
-                          const nick = it.ifr && ch && it.ifr.name !== ch.name ? it.ifr.name : undefined;
                           const can = !it.legacy && mine(it.authorId);
                           return (
                             <ReactLine key={it.key} name={it.name} text={it.text} ch={ch}
-                              note={nick ?? (it.legacy ? '자관에서 수정' : undefined)}
+                              note={it.legacy ? '자관에서 수정' : undefined}
                               tools={can ? <>
                                 <span className="fx" style={{ cursor: 'pointer' }} onClick={() => openEdit(c, it)}>수정</span>
                                 <span className="fx" style={{ cursor: 'pointer' }} onClick={() => removeItem(it)}>삭제</span>
@@ -423,9 +459,28 @@ export default function IfPage() {
                       {!g.locked && g.items.length === 0 && <p className="hint" style={{ margin: '6px 0' }}>아직 답변이 없어요</p>}
                     </div>
                   ))}
-                  {groups.length === 0 && <p className="hint" style={{ marginTop: 12 }}>아직 반응이 없어요</p>}
+                  {(() => {
+                    // 답변 없는 자관 — 큰 칸 대신 한 줄로 (자관 QUESTIONS에는 질문이 있지만 아직 아무도 답 안 함)
+                    const waiting = groups.filter(g => g.refs && !g.locked && g.items.length === 0);
+                    if (!waiting.length) return null;
+                    return (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: FAINT }}>
+                        <span>답변 기다리는 자관</span>
+                        {waiting.map(g => (
+                          <span key={g.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 4px 2px 10px', borderRadius: 999, border: `1px solid ${LINE}` }}>
+                            <a href={`/rels/${g.rel!.slug || g.rel!.id}`} style={{ color: 'inherit' }}>#{g.label}</a>
+                            {canEditRel(g.rel!, chars, user?.id, isAdmin)
+                              ? <span className="fx" data-tip="이 자관에서 질문 빼기" style={{ cursor: 'pointer', padding: '0 4px' }} onClick={() => removeRelGroup(c, g)}>✕</span>
+                              : <span style={{ width: 4 }} />}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  {groups.every(g => g.items.length === 0 && !g.locked) && <p className="hint" style={{ marginTop: 12 }}>아직 반응이 없어요</p>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
                     {canWrite && <button className="btn btn-ghost" onClick={() => openAdd(c)}>＋ 반응 달기</button>}
+                    <button className="btn btn-ghost" onClick={() => collapse(c.id)}>▲ 접기</button>
                     <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, fontSize: 12, color: FAINT }}>
                       {c.post && mine(c.post.authorId) && <span className="fx" style={{ cursor: 'pointer' }} onClick={() => openEditPost(c.post!)}>질문 수정</span>}
                       {canDelCard(c) && <span className="fx" style={{ cursor: 'pointer' }} onClick={() => removeCard(c)}>삭제</span>}
@@ -437,6 +492,15 @@ export default function IfPage() {
           );
         })}
       </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 18 }}>
+        <Pager page={curPage} total={pageCount} onChange={goPage} />
+      </div>
+      {list.length > 3 && (
+        <div style={{ textAlign: 'center', marginTop: 10 }}>
+          <span className="fx" style={{ cursor: 'pointer', fontSize: 12, color: FAINT }} onClick={toTop}>▲ 맨 위로</span>
+        </div>
+      )}
 
       {/* 질문 등록/수정 */}
       <Modal open={pOpen} onClose={() => setPOpen(false)} title={pId ? 'IF 수정' : '새 IF'} dirty
@@ -480,8 +544,12 @@ export default function IfPage() {
                   <KSelect value={rRel} onChange={setRRel} minWidth={220} maxWidth={320} options={relOptions} />
                   <label style={{ fontSize: 12, color: FAINT }}>캐릭터</label>
                   <CharPicker chars={sortedChars} value={rChar} onChange={setRChar} prefer={membersOf(rRel)} />
-                  <label style={{ fontSize: 12, color: FAINT }}>{rChar ? '별명으로 보이게 (선택) — 비우면 캐릭터 이름' : '목록에 없는 캐릭터면 이름 직접 입력'}</label>
-                  <KInput placeholder={rChar ? '찬' : '이름'} value={rName} onChange={e => setRName(e.target.value)} />
+                  {!rChar && (
+                    <>
+                      <label style={{ fontSize: 12, color: FAINT }}>목록에 없는 캐릭터면 이름 직접 입력</label>
+                      <KInput placeholder="이름" value={rName} onChange={e => setRName(e.target.value)} />
+                    </>
+                  )}
                   <label style={{ fontSize: 12, color: FAINT }}>반응 — (괄호)는 지문으로 보여요</label>
                   <KTextarea rows={3} placeholder="ㅎㅎ (재현이 번호 줌)" value={rText} onChange={e => setRText(e.target.value)} />
                 </>
