@@ -10,7 +10,9 @@ export const FAINT = 'var(--faint, #8a8f99)';
 export const LINE = 'var(--line, rgba(0,0,0,.12))';
 
 export function Face({ ch, name, size = 38 }: { ch?: Character; name: string; size?: number }) {
-  const box: React.CSSProperties = { flex: 'none', width: size, height: size, borderRadius: '50%', overflow: 'hidden' };
+  // position: relative 필수 — 사진(CropImg)은 자기를 감싼 칸에 꽉 차도록 absolute로 그려진다.
+  // 이게 없으면 사진이 페이지 전체를 덮어 아무것도 못 누른다 (첫 배포 때 실제로 겪음)
+  const box: React.CSSProperties = { position: 'relative', flex: 'none', width: size, height: size, borderRadius: '50%', overflow: 'hidden' };
   if (ch?.thumbId) return <div style={box}><CroppedBlobImg fileRef={ch.thumbId} crop={ch.thumbCrop} /></div>;
   const label = ch?.name || name;
   return (

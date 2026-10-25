@@ -1125,7 +1125,8 @@ export default function RelDetailPage() {
               onClick={() => setQsetOpen(true)}>＋</button>
           )}
           {canEdit && (
-            <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+            /* 버튼이 탭 밑줄에 붙지 않게 아래로 10px 띄운다 (포크) — 위는 탭 글자와 가운데가 맞도록 위에 붙인다 */
+            <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center', alignSelf: 'flex-start', paddingBottom: 10 }}>
               {/* 이 줄의 버튼은 홈 공통 버튼과 같은 세로 크기(35px)로 — 탭 줄에서만 작아 보이던 것 */}
               {tab === 'tl' && auTimeline.length > 1 && (
                 <button className={`btn ${tlSort ? 'btn-accent' : 'btn-ghost'}`}
