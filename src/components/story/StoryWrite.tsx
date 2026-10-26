@@ -16,7 +16,7 @@ import { Modal } from '@/components/ui/Modal';
 import { KInput, KTextarea, KSelect } from '@/components/ui/Kit';
 import { useToast } from '@/components/ui/Toast';
 import { Face, CharPicker, guessChar } from '@/components/ifs/IfParts';
-import { StoryBody, KindBadge, FAINT, LINE, type StoryCtx } from './StoryParts';
+import { StoryBody, KindBadge, FAINT, LINE, useIsMobile, type StoryCtx } from './StoryParts';
 
 export interface WriteInit { topicId?: string; relId?: string }
 
@@ -64,6 +64,11 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
   const [picking, setPicking] = useState(false);
   const [ifNo, setIfNo] = useState<string[]>([]);
   const [draft, setDraft] = useState<StoryDraft | null>(null);
+  // 폰 화면 (포크): 꼭 필요한 칸만 보이고 나머지는 「추가 정보」·「글 모양」으로 접는다
+  const mobile = useIsMobile();
+  const [more, setMore] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(false);
+  const extra = !mobile || more;
   const [f, setF] = useState<Form>(() => blank());
   const touched = useRef(false);
 
@@ -327,6 +332,7 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
           .story-write .tabs{display:inline-flex}
           .story-write .split.t-body .pv{display:none}
           .story-write .split.t-preview .ed{display:none}
+          .mng-box:has(.story-write){width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;padding:18px 16px}
         }
       `}</style>
       <div className="story-write" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -387,7 +393,7 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
                 <span style={{ fontSize: 11.5, color: FAINT }}>
                   {topicHit && (f.catId || undefined) !== topicHit.catId
                     ? <>카테고리는 주제에 붙어 있어요 — 「{topicHit.name}」의 다른 에피소드도 같이 바뀌어요</>
-                    : '카테고리 추가·이름 바꾸기는 STORY 메인의 「✎ 카테고리」에서'}
+                    : mobile ? '' : '카테고리 추가·이름 바꾸기는 STORY 메인의 「✎ 카테고리」에서'}
                 </span>
               </div>
 
@@ -403,14 +409,14 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
                     ...[...ctx.rels].sort((a, b) => a.name.localeCompare(b.name)).map(r => ({ value: r.id, label: r.name }))]} />
                 {!f.relId && <KInput placeholder="조합 이름 (선택) — 예: 찬성 × 태영" value={f.couple} onChange={e => set({ couple: e.target.value })} />}
               </div>
-              <div style={FIELD}>
+              {extra && <div style={FIELD}>
                 <span style={LBL}>세계관 {rel && <span style={{ fontWeight: 400, color: FAINT }}>— 멤버 소속에서 자동</span>}</span>
                 <KSelect value={f.worldId} onChange={v => set({ worldId: v })} minWidth={200} maxWidth={320}
                   options={[{ value: '', label: <span style={{ color: FAINT }}>지정 안 함</span> }, ...ctx.worlds.map(w => ({ value: w.id, label: w.name }))]} />
-              </div>
+              </div>}
 
               <div style={{ ...FIELD, gridColumn: '1 / -1' }}>
-                <span style={LBL}>등장인물 — 자관 멤버는 자동 체크(다시 누르면 빠짐) · 주연/조연은 글자를 눌러 바꿔요</span>
+                <span style={LBL}>{mobile ? '등장인물 — 누르면 넣기/빼기 · 주연/조연 글자로 바꾸기' : '등장인물 — 자관 멤버는 자동 체크(다시 누르면 빠짐) · 주연/조연은 글자를 눌러 바꿔요'}</span>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', padding: 10, borderRadius: 10, border: `1px solid ${LINE}` }}>
                   {castChars.map(c => {
                     const on = f.cast.find(x => x.charId === c.id);
@@ -431,9 +437,9 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
               </div>
 
               <div style={{ ...FIELD, gridColumn: '1 / -1' }}>
-                <span style={LBL}>작중 시점 — 글자는 자유, 순서는 자리로 정해요 (등록일이 아니라 작중 순서)</span>
+                <span style={LBL}>{mobile ? '작중 시점' : '작중 시점 — 글자는 자유, 순서는 자리로 정해요 (등록일이 아니라 작중 순서)'}</span>
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'stretch' }}>
-                  <div style={{ width: 220, flex: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ width: mobile ? '100%' : 220, flex: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <KInput placeholder="고등학교 2학년" value={f.era} onChange={e => set({ era: e.target.value })} />
                     <div className="mini-seg">
                       {(['main', 'if', 'au'] as const).map(k => (
@@ -441,32 +447,44 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
                       ))}
                     </div>
                   </div>
-                  {lanePicker}
+                  {extra && lanePicker}
                 </div>
               </div>
 
-              <div style={FIELD}>
+              {mobile && (
+                <button type="button" onClick={() => setMore(!more)}
+                  style={{ justifySelf: 'start', padding: '8px 14px', borderRadius: 999, border: `1px solid ${LINE}`, background: 'transparent', fontSize: 12.5, color: 'var(--sub)' }}>
+                  {more ? '추가 정보 접기 ▴' : '추가 정보 — 세계관 · 순서 · 키워드 · 공개 범위 ▾'}
+                </button>
+              )}
+              {extra && <div style={FIELD}>
                 <span style={LBL}>키워드</span>
                 <KInput placeholder="#사탕 #기념일" value={f.keywords} onChange={e => set({ keywords: e.target.value })} />
-              </div>
-              <div style={FIELD}>
+              </div>}
+              {extra && <div style={FIELD}>
                 <span style={LBL}>공개 범위</span>
                 <KSelect value={f.vis} onChange={v => set({ vis: v as StoryVis })} minWidth={160}
                   options={[{ value: 'member', label: '회원만' }, { value: 'public', label: '전체 공개' }, { value: 'private', label: '나만 보기' }]} />
-              </div>
+              </div>}
             </div>
 
             <div style={FIELD}>
               <span style={{ ...LBL, display: 'flex', alignItems: 'center', gap: 8 }}>
-                본문 — 「이름 : 대사」 줄은 대사 상자로 · 글 모양은 이 에피소드 전체에 적용
+                {mobile ? '본문 — 「이름 : 대사」는 대사 상자로' : '본문 — 「이름 : 대사」 줄은 대사 상자로 · 글 모양은 이 에피소드 전체에 적용'}
                 <span className="mini-seg tabs" style={{ marginLeft: 'auto', flex: 'none', whiteSpace: 'nowrap' }}>
                   <button type="button" className={tab === 'body' ? 'on' : ''} onClick={() => setTab('body')}>본문</button>
                   <button type="button" className={tab === 'preview' ? 'on' : ''} onClick={() => setTab('preview')}>미리보기</button>
                 </span>
               </span>
               <div>
-                {styleBar}
-                <div className={`split t-${tab}`}>
+                {mobile && (
+                  <button type="button" onClick={() => setStyleOpen(!styleOpen)}
+                    style={{ marginBottom: 6, padding: '6px 12px', borderRadius: 999, border: `1px solid ${LINE}`, background: 'transparent', fontSize: 12, color: 'var(--sub)' }}>
+                    {styleOpen ? '글 모양 접기 ▴' : '글 모양 — 글꼴 · 크기 · 줄 간격 ▾'}
+                  </button>
+                )}
+                {(!mobile || styleOpen) && styleBar}
+                <div className={`split t-${tab}`} style={mobile && !styleOpen ? { borderRadius: 10 } : undefined}>
                   <textarea className="ed" value={f.body} onChange={e => set({ body: e.target.value })}
                     placeholder={'화이트데이에 사탕을 준비하지 않은 이찬성.\n\n나태영 : 찬성찬성, 사탕 언제 주려고?ㅋㅋㅋ\n이찬성 : 뭐래ㅋㅋ 꺼져'}
                     style={{ width: '100%', minHeight: 320, border: 'none', outline: 'none', resize: 'vertical', padding: 14, fontSize: 13, lineHeight: 1.75, fontFamily: 'inherit', background: 'transparent', color: 'inherit', boxSizing: 'border-box' }} />

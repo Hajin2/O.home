@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type { StoryEp } from '@/lib/storyStore';
 import { KInput, Pager } from '@/components/ui/Kit';
-import { useStory, EpView, KindBadge, Faces, FAINT, LINE, toTop, exportMany } from '@/components/story/StoryParts';
+import { useStory, EpView, KindBadge, Faces, FAINT, LINE, toTop, exportMany, useIsMobile, ActionSheet, Fab, RoundBtn } from '@/components/story/StoryParts';
+import { KIND_LABEL } from '@/lib/storyStore';
 import { StoryWrite } from '@/components/story/StoryWrite';
 import { TopicEdit } from '@/components/story/StoryAdmin';
 
@@ -27,6 +28,10 @@ export default function StoryTopicPage() {
   const [writing, setWriting] = useState(false);
   const [editEp, setEditEp] = useState<StoryEp | null>(null);
   const [topicEdit, setTopicEdit] = useState(false);
+  // 폰 화면 (포크 — 「폰에서 복잡하다」 정리): 버튼은 ⋯ 메뉴로, 쓰기는 오른쪽 아래 ＋, 검색은 ⌕ 아이콘
+  const mobile = useIsMobile();
+  const [sheet, setSheet] = useState(false);
+  const [findOpen, setFindOpen] = useState(false);
 
   const groups: Grp[] = useMemo(() => {
     if (!topic) return [];
@@ -92,6 +97,27 @@ export default function StoryTopicPage() {
 
   return (
     <section className="page">
+      {mobile ? (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <Link href="/story" style={{ fontSize: 11.5, color: 'var(--page-desc)' }}>‹ STORY · {ctx.catOf(topic.catId)?.name ?? '미분류'}</Link>
+              <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--page-title)', margin: '2px 0 0', wordBreak: 'keep-all' }}>{topic.name}</h2>
+              {topic.desc && <div style={{ fontSize: 12, color: 'var(--page-desc)', marginTop: 2 }}>{topic.desc}</div>}
+            </div>
+            <RoundBtn label="검색" onClick={() => setFindOpen(!findOpen)}>⌕</RoundBtn>
+            <RoundBtn label="더 보기" onClick={() => setSheet(true)}>⋯</RoundBtn>
+          </div>
+          {(findOpen || q) && (
+            <KInput placeholder="이 주제 안에서 검색" value={q} autoFocus onChange={e => { setQ(e.target.value); setPage(1); }} style={{ marginBottom: 10 }} />
+          )}
+          <ActionSheet open={sheet} title={`${topic.name} · 에피소드 ${all.length}`} onClose={() => setSheet(false)} items={[
+            { label: '주제 전체 TXT로 저장', onClick: () => exportMany(ctx, topic.name, all) },
+            ...(ctx.canWrite ? [{ label: '주제 수정 · 합치기', onClick: () => setTopicEdit(true) }] : []),
+          ]} />
+          {ctx.canWrite && <Fab onClick={() => setWriting(true)} />}
+        </>
+      ) : (<>
       <div style={{ marginBottom: 6 }}><Link href="/story" style={{ fontSize: 12.5, color: 'var(--page-desc)' }}>‹ STORY</Link></div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
         <div style={{ minWidth: 0, flex: '1 1 260px' }}>
@@ -109,6 +135,7 @@ export default function StoryTopicPage() {
           {ctx.canWrite && <button className="btn btn-dark" onClick={() => setWriting(true)}>＋ 이 주제로 쓰기</button>}
         </div>
       </div>
+      </>)}
 
       {topic.ifQ && (
         <Link href={`/ifs?q=${encodeURIComponent(topic.ifQ)}`} className="panel" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 12, color: 'inherit', fontSize: 13 }}>
@@ -118,9 +145,11 @@ export default function StoryTopicPage() {
         </Link>
       )}
 
+      {!mobile && (
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
         <KInput placeholder="이 주제 안에서 검색" value={q} onChange={e => { setQ(e.target.value); setPage(1); }} style={{ maxWidth: 240 }} />
       </div>
+      )}
 
       <div style={{ display: 'grid', gap: 10 }}>
         {shown.map(g => {
@@ -129,6 +158,14 @@ export default function StoryTopicPage() {
           const list = more.has(g.key) ? g.eps : g.eps.slice(0, EPS_SHOWN);
           return (
             <div key={g.key} className="panel" style={{ padding: 0, overflow: 'hidden' }}>
+              {mobile ? (
+                <div onClick={() => toggleG(g.key)} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '11px 14px', cursor: 'pointer', minWidth: 0 }}>
+                  {rel ? <Faces chars={rel.members.map(m => ctx.charOf(m.charId))} size={26} max={3} /> : <span style={{ width: 26, height: 26, borderRadius: '50%', border: `1px dashed ${FAINT}`, flex: 'none' }} />}
+                  <b style={{ fontSize: 14, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.name}</b>
+                  <span style={{ fontSize: 11, color: FAINT, whiteSpace: 'nowrap' }}>{[g.world, g.eps.length].filter(Boolean).join(' · ')}</span>
+                  <span style={{ marginLeft: 'auto', color: FAINT, fontSize: 11 }}>{isOpen ? '▴' : '▾'}</span>
+                </div>
+              ) : (
               <div onClick={() => toggleG(g.key)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 18px', cursor: 'pointer' }}>
                 {rel ? <Faces chars={rel.members.map(m => ctx.charOf(m.charId))} size={38} max={3} /> : <span style={{ width: 38, height: 38, borderRadius: '50%', border: `1px dashed ${FAINT}`, flex: 'none' }} />}
                 <div style={{ minWidth: 0 }}>
@@ -137,25 +174,38 @@ export default function StoryTopicPage() {
                 </div>
                 <span style={{ marginLeft: 'auto', fontSize: 12.5, color: 'var(--sub)', whiteSpace: 'nowrap' }}>{g.eps.length}개의 이야기 {isOpen ? '▴' : '▾'}</span>
               </div>
+              )}
               {isOpen && (
                 <div style={{ borderTop: `1px solid ${LINE}` }}>
                   {list.map(e => {
                     const on = openEp === e.id;
                     const n = ctx.cmts.filter(c => c.epId === e.id).length;
                     return (
-                      <div key={e.id} id={`ep-${e.id}`} style={{ borderBottom: `1px solid ${LINE}`, borderLeft: on ? '4px solid var(--ink)' : '4px solid transparent', scrollMarginTop: 12 }}>
+                      <div key={e.id} id={`ep-${e.id}`} style={{ borderBottom: `1px solid ${LINE}`, borderLeft: on && !mobile ? '4px solid var(--ink)' : mobile ? 'none' : '4px solid transparent', scrollMarginTop: 12 }}>
+                        {mobile ? (
+                          <div onClick={() => toggleEp(e.id)} style={{ padding: '11px 16px', cursor: 'pointer', minWidth: 0 }}>
+                            <div style={{ fontSize: 10.5, color: FAINT }}>{[e.era, KIND_LABEL[e.kind]].filter(Boolean).join(' · ')}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <b style={{ fontSize: 15, minWidth: 0, flex: 1, wordBreak: 'keep-all' }}>{e.title}</b>
+                              <span style={{ fontSize: 11, color: FAINT, whiteSpace: 'nowrap' }}>{on ? '접기 ▴' : n ? `💬 ${n}` : '▾'}</span>
+                            </div>
+                          </div>
+                        ) : (
                         <div onClick={() => toggleEp(e.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', cursor: 'pointer', minWidth: 0 }}>
                           <span className="story-era" style={{ width: 96, flex: 'none', fontSize: 12, color: FAINT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.era ?? '—'}</span>
                           <KindBadge kind={e.kind} />
                           <span style={{ fontSize: 14, fontWeight: on ? 800 : 700, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
                           <span style={{ marginLeft: 'auto', fontSize: 11.5, color: FAINT, whiteSpace: 'nowrap' }}>{n ? `댓글 ${n} · ` : ''}{on ? '접기 ▴' : '▾'}</span>
                         </div>
+                        )}
                         {on && (
-                          <div style={{ padding: '4px 22px 16px 28px' }}>
+                          <div style={{ padding: mobile ? '0 16px 14px' : '4px 22px 16px 28px' }}>
                             <EpView ctx={ctx} ep={e} from="topic" onEdit={setEditEp} onDeleted={() => setOpenEp(null)} />
+                            {!mobile && (
                             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
                               <span className="fx" style={{ fontSize: 12, color: 'var(--sub)', cursor: 'pointer' }} onClick={() => collapseEp(e.id)}>▴ 이 이야기 접기</span>
                             </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -169,7 +219,7 @@ export default function StoryTopicPage() {
                   )}
                   {rel && (
                     <div style={{ padding: '8px 18px 12px', fontSize: 12, textAlign: 'right' }}>
-                      <Link href={`/story/rel/${rel.id}`} style={{ color: 'var(--sub)' }}>이 커플링 전체 타임라인 ›</Link>
+                      <Link href={`/story/rel/${rel.id}`} style={{ color: 'var(--sub)' }}>{mobile ? `${rel.name} 타임라인 ›` : '이 커플링 전체 타임라인 ›'}</Link>
                     </div>
                   )}
                 </div>

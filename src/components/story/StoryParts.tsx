@@ -1,6 +1,7 @@
 'use client';
 // STORY (포크) — 여러 화면이 같이 쓰는 조각: 데이터 묶음 · 본문 그리기 · 에피소드 펼친 화면(댓글 포함)
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { useLocalList, newId } from '@/lib/postStore';
@@ -172,6 +173,61 @@ export function exportMany(ctx: StoryCtx, name: string, list: StoryEp[]) {
   })).join('\n===\n\n'));
 }
 
+/* ---------- 폰 화면용 (포크 — 「폰에서 복잡하다」 정리) ---------- */
+/** 폰 폭인가 (720px 이하) — PC 화면은 그대로 두고 폰에서만 버튼을 접는다 */
+export function useIsMobile(): boolean {
+  const [m, setM] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 720px)');
+    const on = () => setM(mq.matches);
+    on();
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return m;
+}
+
+export interface SheetItem { label: React.ReactNode; onClick?: () => void; href?: string; danger?: boolean }
+/** 아래에서 올라오는 메뉴 — ⋯ 버튼용 */
+export function ActionSheet({ open, title, items, onClose }: { open: boolean; title?: React.ReactNode; items: SheetItem[]; onClose: () => void }) {
+  if (!open || typeof document === 'undefined') return null;
+  const row: React.CSSProperties = { display: 'block', width: '100%', textAlign: 'left', padding: '14px 22px', fontSize: 14.5, borderTop: `1px solid ${LINE}`, background: 'transparent', color: 'var(--ink)' };
+  return createPortal(
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(15,17,20,.45)', display: 'flex', alignItems: 'flex-end' }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: '100%', background: 'var(--panel-solid, #fbfbfc)', borderRadius: '18px 18px 0 0', padding: '10px 0 calc(14px + env(safe-area-inset-bottom))', boxShadow: '0 -10px 40px rgba(0,0,0,.25)' }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: LINE, margin: '0 auto 8px' }} />
+        {title && <div style={{ padding: '0 22px 8px', fontSize: 12, color: FAINT }}>{title}</div>}
+        {items.map((it, i) => it.href
+          ? <Link key={i} href={it.href} onClick={onClose} style={{ ...row, color: it.danger ? 'var(--accent)' : 'var(--ink)' }}>{it.label}</Link>
+          : <button key={i} type="button" style={{ ...row, color: it.danger ? 'var(--accent)' : 'var(--ink)' }} onClick={() => { onClose(); it.onClick?.(); }}>{it.label}</button>)}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** 오른쪽 아래 ＋ (폰) — 맨 위로 버튼·BGM 바 위로 */
+export function Fab({ onClick, label = '＋' }: { onClick: () => void; label?: string }) {
+  return (
+    <button type="button" onClick={onClick} aria-label="새 에피소드"
+      style={{
+        position: 'fixed', right: 18, bottom: 'max(140px, calc(var(--bgm-h, 0px) + 64px))', zIndex: 31,
+        width: 52, height: 52, borderRadius: '50%', background: 'var(--btn-dark, var(--ink))', color: 'var(--btn-dark-fg, #fff)',
+        fontSize: 24, lineHeight: 1, display: 'grid', placeItems: 'center', boxShadow: '0 8px 22px rgba(0,0,0,.32)',
+      }}>{label}</button>
+  );
+}
+
+/** 동그란 아이콘 버튼 (⋯ ⌕) */
+export function RoundBtn({ children, onClick, label, size = 34 }: { children: React.ReactNode; onClick: () => void; label: string; size?: number }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={label}
+      style={{ width: size, height: size, flex: 'none', borderRadius: '50%', background: 'var(--panel-solid, #fff)', border: `1px solid ${LINE}`, color: 'var(--ink)', display: 'grid', placeItems: 'center', fontSize: 15, fontWeight: 900, lineHeight: 1 }}>
+      {children}
+    </button>
+  );
+}
+
 /* ---------- 에피소드 펼친 화면 ---------- */
 export function EpView({ ctx, ep, onEdit, onDeleted, from }: {
   ctx: StoryCtx; ep: StoryEp; onEdit: (e: StoryEp) => void; onDeleted?: () => void;
@@ -190,6 +246,43 @@ export function EpView({ ctx, ep, onEdit, onDeleted, from }: {
     ctx.setCmts(ctx.cmts.filter(c => !(c.epId === ep.id && (ctx.isAdmin || c.authorId === ctx.user?.id))));
     onDeleted?.();
   });
+  const mobile = useIsMobile();
+  const [sheet, setSheet] = useState(false);
+  const [showCast, setShowCast] = useState(false);
+  const [cmtOpen, setCmtOpen] = useState(false);
+  const nCmt = ctx.cmts.filter(c => c.epId === ep.id).length;
+  if (mobile) {
+    // 폰 — 본문 아래엔 「글쓴이 · 날짜 · 💬 · ⋯」 한 줄만. 버튼·등장인물은 ⋯ 메뉴로, 댓글은 💬을 눌러야 펼침
+    const castAll = [...main, ...sub];
+    const items: SheetItem[] = [
+      ...(from !== 'rel' && rel ? [{ label: `${rel.name} 타임라인에서 보기`, href: `/story/rel/${rel.id}?ep=${ep.id}` }] : []),
+      ...(from !== 'topic' && topic ? [{ label: `주제 「${topic.name}」에서 보기`, href: `/story/topic/${topic.id}?ep=${ep.id}` }] : []),
+      ...(castAll.length ? [{ label: showCast ? '등장인물 숨기기' : `등장인물 보기 · ${castAll[0]}${castAll.length > 1 ? ` 외 ${castAll.length - 1}` : ''}`, onClick: () => setShowCast(!showCast) }] : []),
+      { label: 'TXT로 저장', onClick: () => exportEp(ctx, ep) },
+      ...(can ? [{ label: '수정', onClick: () => onEdit(ep) }, { label: '삭제', onClick: remove, danger: true }] : []),
+    ];
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {showCast && castAll.length > 0 && (
+          <div style={{ fontSize: 11.5, color: FAINT }}>
+            등장 — <b style={{ color: 'var(--ink)' }}>{main.join(' · ')}</b>{sub.length > 0 && <> · {sub.join(' · ')} (조연)</>}
+          </div>
+        )}
+        <StoryBody body={ep.body} style={ep.style} cast={cast} clamp />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5, color: FAINT }}>
+          <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.author} · {ep.date.slice(5, 10).replace('-', '.')}</span>
+          <button type="button" onClick={() => setCmtOpen(!cmtOpen)}
+            style={{ marginLeft: 'auto', background: 'transparent', color: cmtOpen ? 'var(--ink)' : 'var(--sub)', fontWeight: cmtOpen ? 700 : 500, fontSize: 12.5, padding: '4px 2px' }}>
+            💬 {nCmt}{cmtOpen ? ' ▴' : ''}
+          </button>
+          <RoundBtn label="더 보기" size={30} onClick={() => setSheet(true)}>⋯</RoundBtn>
+        </div>
+        {cmtOpen && <StoryComments ctx={ctx} ep={ep} bare />}
+        <ActionSheet open={sheet} title={ep.title} items={items} onClose={() => setSheet(false)} />
+        {del.element}
+      </div>
+    );
+  }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {(main.length > 0 || sub.length > 0) && (
@@ -216,9 +309,10 @@ export function EpView({ ctx, ep, onEdit, onDeleted, from }: {
 }
 
 /* ---------- 댓글 — 접혀서 한 줄, 누르면 펼침 ---------- */
-function StoryComments({ ctx, ep }: { ctx: StoryCtx; ep: StoryEp }) {
+function StoryComments({ ctx, ep, bare }: { ctx: StoryCtx; ep: StoryEp; bare?: boolean }) {
   const toast = useToast();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpen] = useState(false);
+  const open = bare || openState;   // bare: 폰 — 💬을 눌러 이미 펼친 상태, 머리 줄 없이
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const list = ctx.cmts.filter(c => c.epId === ep.id).sort((a, b) => a.date.localeCompare(b.date));
@@ -263,11 +357,12 @@ function StoryComments({ ctx, ep }: { ctx: StoryCtx; ep: StoryEp }) {
     </div>
   );
   return (
-    <div style={{ background: 'color-mix(in srgb, var(--ink, #1d2025) 4%, transparent)', borderRadius: 10, padding: '10px 14px' }}>
-      <div onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, minWidth: 0 }}>
+    <div style={bare ? { borderTop: `1px solid ${LINE}`, paddingTop: 4 } : { background: 'color-mix(in srgb, var(--ink, #1d2025) 4%, transparent)', borderRadius: 10, padding: '10px 14px' }}>
+      {!bare && <div onClick={() => setOpen(!open)} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12.5, minWidth: 0 }}>
         <b style={{ flex: 'none' }}>댓글 {list.length} {open ? '▴' : '▾'}</b>
         {!open && last && <span style={{ color: FAINT, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{last.author}: {last.text}</span>}
-      </div>
+      </div>}
+      {bare && list.length === 0 && <p className="hint" style={{ margin: '6px 0' }}>아직 댓글이 없어요</p>}
       {open && (
         <div style={{ marginTop: 6 }}>
           {roots.map(c => (
