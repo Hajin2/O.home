@@ -46,6 +46,8 @@ export interface BackupPost {
   fold: { type: FoldType; label?: string } | null;
   /** 태그 (v2.0 사용자 요청) — 목록·카드에 나열되고 검색에 걸린다 */
   tags?: string[];
+  /** 그림마다 목록용 미리보기 + 원본 크기 (포크 최적화 — lib/galleryThumb). images와 같은 순서 */
+  thumbs?: (import('./galleryThumb').ThumbInfo | null)[];
 }
 
 export const BACKUP_SEED: BackupPost[] = [];

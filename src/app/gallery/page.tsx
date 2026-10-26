@@ -18,6 +18,8 @@ import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 import { useMainStore } from '@/lib/mainStore';
 import { useCardSort, mergeOrder } from '@/lib/cardSort';
 import { useMenuSettings, canGalleryWrite } from '@/lib/menuStore';
+import { useBoardSettings, galleryCatsOf, DEFAULT_GALLERY_CATS } from '@/lib/boardStore';
+import { GalleryGrid } from '@/components/backup/GalleryGrid';   // 포크: 「갤러리」 = 그림 한 장씩 벽돌형
 
 const FOLD_LABEL = { spoiler: '스포일러', adult: '수위 주의' };
 
@@ -33,11 +35,17 @@ function BackupPageInner() {
   const setPosts = sectionSetter(postsAll, sec.id, setPostsAll);
   // 기본 보기 — 환경설정 > 메뉴 관리의 갤러리 항목에서 지정 (5.2)
   const [menuSet, , menuLoaded] = useMenuSettings();
-  const [view, setView] = useState<'gal' | 'list'>('gal');
+  // 보기 (포크 · 친구 요청): 「갤러리」 = 그림 한 장씩 벽돌형(grid) · 「리스트」 = 올린 단위로 모아보기(예전 갤러리 카드 'gal')
+  // 기본은 「갤러리」 — 환경설정 기본 보기가 「리스트」면 리스트로 연다. 예전 줄 목록('list')은 쓰지 않는다
+  const [view, setView] = useState<'grid' | 'gal' | 'list'>('grid');
   const [viewInit, setViewInit] = useState(false);
   useEffect(() => {
-    if (menuLoaded && !viewInit) { setView(menuSet.backupView); setViewInit(true); }
+    if (menuLoaded && !viewInit) { setView(menuSet.backupView === 'list' ? 'gal' : 'grid'); setViewInit(true); }
   }, [menuLoaded, viewInit, menuSet.backupView]);
+  // 카테고리(말머리)별로 보기 (포크) — 올릴 때 고른 말머리로 거른다
+  const { st: boardSet } = useBoardSettings();
+  const catList = (() => { const c = galleryCatsOf(boardSet, sec.id); return c.length ? c : DEFAULT_GALLERY_CATS; })();
+  const [cat, setCat] = useState('');
   const [q, setQ] = useState('');
   const [tagSel, toggleTag, clearTags, tagMode, toggleMode] = useTagFilter();
   const [tagColors] = useTagColors();   // 자유 태그 필터
@@ -62,6 +70,7 @@ function BackupPageInner() {
   const visible = posts
     .filter(p => isAdmin || p.visibility === 'public' || (p.visibility === 'member' && user))
     .filter(p => matchTags(p, tagSel, tagMode))
+    .filter(p => !cat || p.category === cat)
     .filter(p => !q || p.title.includes(q) || p.category.includes(q)
       || (p.tags ?? []).some(t => t.toLowerCase().includes(q.toLowerCase())));   // 태그 검색 (v2.0)
 
@@ -76,7 +85,7 @@ function BackupPageInner() {
   const cur = Math.min(page, pages);      // 검색·보기 전환으로 줄면 마지막 장으로 당긴다
   const start = (cur - 1) * PER;
   const paged = visible.slice(start, start + PER);
-  useEffect(() => { setPage(1); }, [q, view, tagSel]);   // 검색어·보기를 바꾸면 첫 장부터
+  useEffect(() => { setPage(1); }, [q, view, tagSel, cat]);   // 검색어·보기를 바꾸면 첫 장부터
 
   const count = (p: BackupPost) => Math.max(p.images.length, p.phList.length);
   const meta = (p: BackupPost) =>
@@ -90,8 +99,8 @@ function BackupPageInner() {
       </div>
       <div className="toolrow">
         <div className="seg">
-          <button className={view === 'gal' ? 'on' : ''} onClick={() => setView('gal')}>갤러리</button>
-          <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>리스트</button>
+          <button className={view === 'grid' ? 'on' : ''} onClick={() => setView('grid')}>갤러리</button>
+          <button className={view === 'gal' ? 'on' : ''} onClick={() => setView('gal')}>리스트</button>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <SearchBar onSearch={setQ} />
@@ -102,9 +111,29 @@ function BackupPageInner() {
         </div>
       </div>
 
+      {/* 카테고리(말머리) 칩 (포크) — 실제로 쓰인 것만 */}
+      {(() => {
+        const used = new Set(posts.map(p => p.category).filter(Boolean));
+        const names = [...catList.map(c => c.label).filter(l => used.has(l)), ...[...used].filter(u => !catList.some(c => c.label === u))];
+        if (names.length < 2) return null;
+        const chip = (on: boolean): React.CSSProperties => ({
+          padding: '5px 13px', borderRadius: 999, fontSize: 12, cursor: 'var(--cur-pointer, pointer)', whiteSpace: 'nowrap',
+          background: on ? 'var(--btn-dark, var(--ink))' : 'var(--panel-solid, #fff)', color: on ? 'var(--btn-dark-fg, #fff)' : 'var(--ink)',
+          border: on ? '1px solid transparent' : '1px solid var(--line)', fontWeight: on ? 700 : 500,
+        });
+        return (
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', margin: '0 0 12px', paddingBottom: 2 }}>
+            <span style={chip(!cat)} onClick={() => setCat('')}>전체</span>
+            {names.map(n => <span key={n} style={chip(cat === n)} onClick={() => setCat(cat === n ? '' : n)}>{n}</span>)}
+          </div>
+        );
+      })()}
       <TagFilter counts={tagCounts(posts.filter(p => isAdmin || p.visibility === 'public' || (p.visibility === 'member' && !!user)))}
         selected={tagSel} onToggle={toggleTag} onClear={clearTags} mode={tagMode} onToggleMode={toggleMode} />
 
+      {/* 「갤러리」 보기 — 그림 한 장씩 벽돌형 · 40장씩 페이지 (포크) */}
+      {view === 'grid' && <GalleryGrid posts={visible} />}
+      {view === 'grid' && isAdmin && <ThumbFill posts={posts} setPosts={setPosts} />}
       {/* 갤러리/리스트 모두 렌더해 두고 display로만 전환 (v1.9) —
           전환 때마다 재마운트되며 이미지가 다시 로드·등장하던 깜빡임 제거 */}
       <div className="g3" style={{ display: view === 'gal' && visible.length > 0 ? undefined : 'none' }}>
@@ -117,7 +146,7 @@ function BackupPageInner() {
                 onContextMenu={e => onCtx(e, p)}>
                 <div className={`thumb ${folded ? 'veil' : ''}`}>
                   <div style={{ position: 'absolute', inset: 0 }}>
-                    <CroppedBlobImg fileRef={p.images[0]} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} />
+                    <CroppedBlobImg fileRef={cardThumb(p)} crop={p.thumbCrop} ph={p.phList[0] ?? 'cool'} />
                   </div>
                   {/* 유형 뱃지(로그/단일 …)는 리스트에서 뺐다 (v2.0 사용자 요청) — 상세에는 그대로 */}
                   {folded && (
@@ -163,12 +192,15 @@ function BackupPageInner() {
             </div>
           ))}
         </div>
+      {view === 'gal' && visible.length > 0 && (
+        <p className="hint" style={{ textAlign: 'center' }}>올린 단위로 모아보기 · 그림 한 장씩은 「갤러리」</p>
+      )}
       {visible.length === 0 && (
         <div className="panel" style={{ textAlign: 'center', padding: 44, fontSize: 13, color: 'var(--faint)' }}>
           게시물이 없습니다
         </div>
       )}
-      {visible.length > PER && <Pager page={cur} total={pages} onChange={setPage} />}
+      {view !== 'grid' && visible.length > PER && <Pager page={cur} total={pages} onChange={setPage} />}
 
       {/* 우클릭 메뉴 — 다른 우클릭들과 같은 순서: 메뉴 → 항목 선택 (v2.0) */}
       {ctx && typeof document !== 'undefined' && createPortal(
@@ -197,6 +229,40 @@ function BackupPageInner() {
           }} />
       )}
     </section>
+  );
+}
+
+/** 리스트 카드의 대표 그림 — 작은 미리보기가 있으면 그것 (포크 최적화). 위만 자른 긴 그림 미리보기는 크롭이 어긋나 원본 */
+function cardThumb(p: BackupPost): string | undefined {
+  const t = p.thumbs?.[0];
+  return t?.t && t.h / t.w <= 3 ? t.t : p.images[0];
+}
+
+/** 이미 올린 글의 미리보기 채우기 (포크 최적화 · 관리자) — 한 번 누르면 하나씩 만들어 저장한다 */
+function ThumbFill({ posts, setPosts }: { posts: BackupPost[]; setPosts: (next: BackupPost[]) => void }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const need = posts.filter(p => p.images.length && (p.thumbs?.length ?? 0) < p.images.length);
+  if (!need.length && !busy) return null;
+  const run = async () => {
+    const { makeThumbs } = await import('@/lib/galleryThumb');
+    let cur = posts;
+    for (let i = 0; i < need.length; i++) {
+      setBusy(`${i + 1} / ${need.length}`);
+      const thumbs = await makeThumbs(need[i].images);
+      cur = cur.map(x => (x.id === need[i].id ? { ...x, thumbs } : x));
+      setPosts(cur);
+    }
+    setBusy(null);
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 14, fontSize: 12, color: 'var(--faint)' }}>
+      {busy ? <span>미리보기 만드는 중… {busy} (창을 닫지 마세요)</span> : (
+        <>
+          <span>예전에 올린 글 {need.length}개는 목록용 작은 미리보기가 없어 원본을 받아요 (관리자만 보이는 안내)</span>
+          <button type="button" className="btn btn-ghost" onClick={() => void run()}>미리보기 만들기</button>
+        </>
+      )}
+    </div>
   );
 }
 

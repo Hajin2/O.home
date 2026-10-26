@@ -17,6 +17,7 @@ import { RichEditor } from '@/components/ui/RichEditor';
 import { DragList } from '@/components/ui/DragList';
 import { CropEditor, CropValue } from '@/components/ui/CropEditor';
 import { putBlob, useBlobUrl } from '@/lib/blobStore';
+import { makeThumb, type ThumbInfo } from '@/lib/galleryThumb';   // 포크: 갤러리 목록용 미리보기
 import { useToast } from '@/components/ui/Toast';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 
@@ -126,10 +127,17 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
     if (!title.trim()) { toast('제목을 입력해 주세요'); return; }
     // 이미지 실저장 (IndexedDB) — 기존 ref는 유지, 새 파일만 저장
     const imageIds = await Promise.all(files.map(f => (f.file ? putBlob(f.file) : Promise.resolve(f.ref!))));
+    // 목록용 미리보기 (포크 최적화) — 이미 있던 그림은 예전 것을 그대로, 새 그림만 만든다
+    const oldThumb = new Map<string, ThumbInfo | null>((initial?.images ?? []).map((r, i) => [r, initial?.thumbs?.[i] ?? null]));
+    const thumbs: (ThumbInfo | null)[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      thumbs.push(f.file ? await makeThumb(f.file).catch(() => null) : (oldThumb.get(f.ref!) ?? null));
+    }
     if (isNew) {
       const p: BackupPost = {
         id: newId(), title: title.trim(), type,
-        images: imageIds, phList: files.length ? [] : ['cool'],
+        images: imageIds, phList: files.length ? [] : ['cool'], thumbs,
         thumbCrop: files[0]?.crop, // 대표 이미지 크롭 (6.1)
         desc, category, tags: parseTags(tagsText), madeDate: madeDate || undefined,
         date: new Date().toISOString(), author: user.nickname, authorId: user.id,
@@ -142,7 +150,7 @@ export function BackupForm({ initial }: { initial: BackupPost | null }) {
     } else {
       setPosts(posts.map(x => x.id === initial.id ? {
         ...x, title: title.trim(), type,
-        images: imageIds, phList: files.length ? [] : x.phList,
+        images: imageIds, phList: files.length ? [] : x.phList, thumbs,
         thumbCrop: files[0]?.crop,
         desc, category, tags: parseTags(tagsText), madeDate: madeDate || undefined, visibility,
         fold: foldType === 'none' ? null : { type: foldType, label: foldType === 'custom' ? foldLabel : undefined },
