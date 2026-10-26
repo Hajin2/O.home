@@ -179,9 +179,13 @@ export function metaOf(item: ListItem, uid: string | null, floor = 'public') {
   const rawAuthor = typeof item.authorId === 'string' ? item.authorId : '';
   const authorId = rawAuthor || uid || null;
   const hasListHidden = typeof item.listHidden === 'boolean';
-  const own = hasListHidden
-    ? (item.listHidden ? 'private' : 'public')
-    : (typeof item.visibility === 'string' ? item.visibility : 'public');
+  const own = item.secret === true
+    // 게시판 비밀글 (포크 · 보안 정비) — 예전엔 화면에서만 가려서 서버엔 공개로 저장돼 F12로 읽혔다.
+    // 이제 서버에도 「나만 보기」로 저장 → 글쓴이와 관리자만 읽는다
+    ? 'private'
+    : hasListHidden
+      ? (item.listHidden ? 'private' : 'public')
+      : (typeof item.visibility === 'string' ? item.visibility : 'public');
   /* 메뉴를 비공개로 둔 곳의 글은 그 기준까지 좁혀 저장한다 (v2.0 사용자 요청 — visFloor 참조).
      **좁히기만 한다** — 글이 이미 더 좁으면 그대로다. 게시판 글처럼 visibility 칸이 아예 없는
      종류도 여기서 정해지므로, 서버가 내주지 않는 것은 화면과 무관하게 보장된다. */

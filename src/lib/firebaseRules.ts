@@ -33,6 +33,17 @@ service cloud.firestore {
             || (ownerData().keys().hasAny(['admins']) && request.auth.uid in ownerData().admins));
     }
 
+    // 회원 = 관리자 + meta/owner 문서의 members 목록에 든 계정 (포크 · 보안 정비)
+    // Firebase는 공개 키만 있으면 누구나 계정을 만들 수 있어서 「로그인했다 = 회원」으로 보면
+    // 외부인이 계정을 만들어 회원 공개 글을 읽고 글·파일을 올릴 수 있었다.
+    // 회원을 늘리려면 Firestore → meta → owner 문서의 members(배열)에 그 사람의 UID를 넣는다.
+    function isMember() {
+      return isAdmin()
+        || (signedIn()
+            && exists(/databases/$(database)/documents/meta/owner)
+            && request.auth.uid in ownerData().get('members', []));
+    }
+
     // 콘텐츠 컬렉션 목록 — 여기 없는 이름은 아무 권한도 없다
     function isContent(name) {
       return name in [
@@ -54,7 +65,11 @@ service cloud.firestore {
     // ── 회원 프로필 ─────────────────────────────────────────────
     match /profiles/{uid} {
       allow read: if true;
-      allow create, update: if signedIn() && (request.auth.uid == uid || isAdmin());
+      // 자기 프로필은 회원만 만든다 — 외부인이 계정을 만들어 회원 목록에 끼어들지 못하게 (포크)
+      // 맨 처음 설치(소유자 지정 전)에는 회원 목록이 없으므로 허용
+      allow create, update: if isAdmin()
+        || (signedIn() && request.auth.uid == uid
+            && (isMember() || !exists(/databases/$(database)/documents/meta/owner)));
       allow delete: if isAdmin();
     }
 
@@ -69,7 +84,7 @@ service cloud.firestore {
       // 읽기: 전체공개 / 멤버공개(로그인) / 내가 쓴 것 / 관리자
       allow read: if isContent(coll) && (
         resource.data.visibility == 'public'
-        || (resource.data.visibility == 'member' && signedIn())
+        || (resource.data.visibility == 'member' && isMember())
         || (signedIn() && resource.data.authorId == request.auth.uid)
         || isAdmin()
       );
@@ -77,7 +92,7 @@ service cloud.firestore {
       // 쓰기: 로그인 회원 — 방명록·댓글은 비로그인 방문자도 남길 수 있음(닉네임+비밀번호 방식)
       // notifications: 손님 댓글·방명록이 관리자에게 알림을 남길 수 있어야 한다 (v2.0) —
       // 행 주인(authorId)은 받는 사람이라 읽기·수정·삭제는 받는 사람·관리자만 (아래 공통 규칙)
-      allow create: if isContent(coll) && (signedIn() || coll in ['guestbook', 'comments', 'notifications']);
+      allow create: if isContent(coll) && (isMember() || coll in ['guestbook', 'comments', 'notifications']);
 
       // 수정·삭제: 작성자 본인 · 편집 권한을 받은 회원 · 관리자
       // 댓글은 글과 따로 저장되므로(v2.0) 댓글을 달 때 글을 수정할 필요가 없다 —
@@ -87,7 +102,7 @@ service cloud.firestore {
       // editorIds: 캐릭터에 「편집까지」 권한을 준 회원 (v2.0). grants는 객체 배열이라
       // 규칙에서 훑을 수 없어, 저장할 때 회원 id만 뽑아 둔 평평한 배열을 본다.
       allow update, delete: if isContent(coll)
-        && signedIn()
+        && isMember()
         && (resource.data.authorId == request.auth.uid
             || isAdmin()
             || (resource.data.keys().hasAny(['editorIds'])
@@ -106,12 +121,12 @@ service cloud.firestore {
     }
     match /worlds/{docId} {
       allow read: if resource.data.visibility == 'public'
-        || (resource.data.visibility == 'member' && signedIn())
+        || (resource.data.visibility == 'member' && isMember())
         || (signedIn() && resource.data.authorId == request.auth.uid)
         || isAdmin();
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
-        || (signedIn()
+        || (isMember()
             && request.auth.uid in resource.data.get('editorIds', [])
             && sameWorldGuard());
     }
@@ -126,7 +141,7 @@ service cloud.firestore {
     // ── 위젯 공유 (읽기 공개범위대로 · 쓰기 관리자) ──────────────
     match /widgets/{docId} {
       allow read: if resource.data.visibility == 'public'
-        || (resource.data.visibility == 'member' && signedIn())
+        || (resource.data.visibility == 'member' && isMember())
         || (signedIn() && resource.data.authorId == request.auth.uid)
         || isAdmin();
       allow write: if isAdmin();
@@ -141,17 +156,25 @@ export const STORAGE_RULES = `rules_version = '2';
 // O.HOME Storage 보안 규칙 (이미지·파일)
 // Firebase 콘솔 → Storage → 규칙 에 붙여넣고 [게시].
 //   · 읽기는 공개 (방문자가 그림을 봐야 하므로)
-//   · 올리기·지우기는 로그인 회원만
+//   · 올리기·지우기는 회원만 — Firestore의 meta/owner(소유자·admins·members)로 확인 (포크 · 보안 정비)
+//     처음 게시할 때 「Storage가 Firestore를 읽도록 권한 부여」를 물으면 허용해야 한다
 //   · 한 번에 20MB 초과 업로드 차단
 // ============================================================
 
 service firebase.storage {
   match /b/{bucket}/o {
+    function isMember() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/meta/owner)
+        && (firestore.get(/databases/(default)/documents/meta/owner).data.uid == request.auth.uid
+            || request.auth.uid in firestore.get(/databases/(default)/documents/meta/owner).data.get('admins', [])
+            || request.auth.uid in firestore.get(/databases/(default)/documents/meta/owner).data.get('members', []));
+    }
     match /ohome/{allPaths=**} {
       allow read: if true;
-      allow write: if request.auth != null
+      allow write: if isMember()
         && request.resource.size < 20 * 1024 * 1024;
-      allow delete: if request.auth != null;
+      allow delete: if isMember();
     }
   }
 }

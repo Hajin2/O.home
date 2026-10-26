@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useLocalList } from '@/lib/postStore';
 import { useLogBody } from '@/lib/logBody';
 import { TrpgLog, TRPG_SEED, TrpgLogBody, TRPG_BODY_SEED, bodyVisibility, showAsHtml, decodeLogText, logNo, saveLogBody } from '@/lib/galleryStore';
+import { hashPw, checkPw } from '@/lib/pwHash';   // 포크: 비밀번호를 글자 그대로 저장하지 않게
 import { Relation, REL_SEED, Character, CHAR_SEED, charGrant } from '@/lib/charStore';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { getBlob, putBlob, useBlobUrl } from '@/lib/blobStore';
@@ -103,7 +104,7 @@ export default function TrpgDetailPage() {
     // 권한이 없으면 홈으로 보내지 않고 이 자리에 잠금 화면을 띄운다 (포크 수정 — 아래 렌더 참고)
   }, [loaded, l, baseAllowed, unlocked, router]);
   const tryUnlock = () => {
-    if (l?.password && pwTry === l.password) {
+    if (l?.password && checkPw(l.id, l.password, pwTry)) {
       setUnlocked(true);
       try { sessionStorage.setItem(`trpg-unlock:${id}`, '1'); } catch { /* 무시 */ }
     } else {
@@ -116,6 +117,7 @@ export default function TrpgDetailPage() {
   const [e, setE] = useState({
     noText: '', title: '', catchphrase: '', writer: '', withText: '',
     relId: 'none', tags: '', date: '', visibility: 'public' as TrpgLog['visibility'], password: '',
+    pwClear: false,      // 비밀번호 해제 (포크 — 저장된 비밀번호는 해시라 칸에 다시 보여 줄 수 없다)
     listHidden: false,   // 목록 표시 여부 (v2.0 — 접근권한과 별개)
   });
   // 본문 교체
@@ -168,7 +170,9 @@ export default function TrpgDetailPage() {
       relId: e.relId === 'none' ? undefined : e.relId,
       tags: parseTags(e.tags),
       date: e.date || undefined,
-      visibility: e.visibility, password: e.password.trim() || undefined,
+      // 비밀번호 — 새로 입력하면 그걸로, 비우면 기존 것 유지(옛 글자 그대로 저장분은 이참에 해시로), 해제 체크면 없앰
+      visibility: e.visibility,
+      password: e.pwClear ? undefined : e.password.trim() ? hashPw(id, e.password.trim()) : (l?.password ? hashPw(id, l.password) : undefined),
       listHidden: e.listHidden,
       ...thumbPatch,
       // 예전엔 본문이 이 문서에 있었다 — 저장할 때마다 확실히 비워서(구버전 잔재 정리),
@@ -279,6 +283,8 @@ export default function TrpgDetailPage() {
         <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle>
           <EditableDesc k="trpg-lock-desc" def="비밀번호를 입력하면 열람할 수 있습니다" always /></div>
         <div className="panel" style={{ maxWidth: 420, margin: '0 auto', padding: 26, display: 'grid', gap: 10 }}>
+          {/* 비밀번호 로그의 본문은 회원만 읽을 수 있게 저장된다 (포크 · 보안 정비) — 로그인 안 했으면 먼저 로그인 */}
+          {!user && <p className="hint" style={{ margin: 0 }}>로그인한 회원만 비밀번호로 열 수 있어요</p>}
           <KInput type="password" placeholder="비밀번호" value={pwTry} onChange={e => setPwTry(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') tryUnlock(); }} />
           <button className="btn btn-dark" style={{ justifyContent: 'center', padding: 9 }} onClick={tryUnlock}>확인</button>
@@ -363,7 +369,7 @@ html,body{margin:0!important;padding:0!important;height:auto!important;min-heigh
             setE({
               noText: l.noText ?? '', title: l.title, catchphrase: l.catchphrase ?? '', writer: l.writer,
               withText: l.withText, relId: l.relId ?? 'none', tags: (l.tags ?? []).join(', '), date: l.date ?? '',
-              visibility: l.visibility, password: l.password ?? '', listHidden: !!l.listHidden,
+              visibility: l.visibility, password: '', pwClear: false, listHidden: !!l.listHidden,
             });
             // 본문·썸네일 교체 상태 초기화 (기본: 현재 것 유지)
             setBodyMode('keep'); setEFile(null); setEText(bodyText ?? '');
@@ -475,8 +481,17 @@ html,body{margin:0!important;padding:0!important;height:auto!important;min-heigh
                 { value: 'member', label: '멤버공개' },
                 { value: 'private', label: '나만보기' },
               ]} />
-            <KInput placeholder="열람 비밀번호 (선택)" value={e.password} onChange={ev => setE(s => ({ ...s, password: ev.target.value }))} style={{ flex: 1 }} />
+            <KInput placeholder={l.password && !e.pwClear ? '비밀번호 설정됨 — 바꿀 때만 입력' : '열람 비밀번호 (선택)'} value={e.password} disabled={e.pwClear}
+              onChange={ev => setE(s => ({ ...s, password: ev.target.value }))} style={{ flex: 1 }} />
+            {l.password && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, whiteSpace: 'nowrap', cursor: 'pointer' }}>
+                <input type="checkbox" checked={e.pwClear} onChange={ev => setE(s => ({ ...s, pwClear: ev.target.checked, password: '' }))} />해제
+              </label>
+            )}
           </div>
+          {e.password.trim() || (l.password && !e.pwClear) ? (
+            <p className="hint" style={{ margin: 0 }}>비밀번호를 건 로그의 본문은 로그인한 회원만 열 수 있어요 (외부인은 서버에서 막힘)</p>
+          ) : null}
           {/* 목록 표시 — 접근권한과 별개 (v2.0 사용자 요청) */}
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'flex-end' }}>
             <span className="cp-lb">목록</span>

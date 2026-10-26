@@ -108,10 +108,12 @@ export interface TrpgLogBody {
   secId?: string;
 }
 
-/** 본문 문서에 적을 열람 권한 — 비밀번호가 걸려 있으면 목록 필터가 예전부터 그래 왔듯 공개로 둔다
- *  (비밀번호는애초에 Firestore 규칙 단계에서 검증할 수 없어 클라이언트 확인용일 뿐이었다) */
+/** 본문 문서에 적을 열람 권한.
+ *  비밀번호는 Firestore 규칙이 검증할 수 없어서, 예전엔 비밀번호 로그의 본문을 아예 공개로 두었다 —
+ *  그러면 F12로 본문이 그대로 보인다 (포크 · 보안 정비). 이제 비밀번호 로그의 본문은 최소 「회원만」:
+ *  외부인은 서버에서 막히고, 비밀번호는 회원끼리의 보조 잠금이 된다. */
 export const bodyVisibility = (l: { visibility: Visibility; password?: string }): Visibility =>
-  l.password ? 'public' : l.visibility;
+  l.password ? (l.visibility === 'public' ? 'public' : l.visibility === 'private' ? 'member' : l.visibility) : l.visibility;
 
 export const TRPG_BODY_SEED: TrpgLogBody[] = [];
 

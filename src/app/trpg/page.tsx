@@ -9,6 +9,7 @@ import { useLocalList, newId } from '@/lib/postStore';
 import { addLogBody } from '@/lib/logBody';
 import { useBookmarkIndex, LogBmBadge } from '@/components/trpg/LogBmBadge';
 import { TrpgLog, TRPG_SEED, TrpgLogBody, TRPG_BODY_SEED, bodyVisibility, decodeLogText, logNo, saveLogBody } from '@/lib/galleryStore';
+import { hashPw } from '@/lib/pwHash';   // 포크: 비밀번호를 글자 그대로 저장하지 않게
 import { Relation, REL_SEED } from '@/lib/charStore';
 import { SearchBar, KInput, KTextarea, KRadio, KSelect, KDate, Pager } from '@/components/ui/Kit';
 import { Modal } from '@/components/ui/Modal';
@@ -212,7 +213,7 @@ function TrpgPageInner() {
       tags: parseTags(nTags),
       date: nDate || undefined, ph: 'cool',
       visibility: nVis,
-      password: nPw.trim() || undefined,
+      password: nPw.trim() ? hashPw(id, nPw.trim()) : undefined,
       listHidden: nListHidden,
       // 썸네일: 이미지(선택) 또는 단색/그라데이션
       thumbId: nThumb ? await putBlob(nThumb) : undefined,

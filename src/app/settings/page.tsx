@@ -2073,7 +2073,8 @@ function MenuPane() {
       let n = 0;
       for (const coll of CONTENT_COLLECTIONS) {
         const rows = await be.fetchList(coll);
-        const targets = rows.filter(r => visFloorOf(coll, r) !== 'public');
+        // 비밀글(포크 · 보안 정비)도 — 메뉴가 전체 공개여도 서버에서 나만 보기로 다시 적는다
+        const targets = rows.filter(r => visFloorOf(coll, r) !== 'public' || (r as { secret?: unknown }).secret === true);
         if (targets.length) n += await be.refreshVis(coll, targets, user?.id ?? null);
       }
       toast(n ? `글 ${n}건을 서버에서도 가렸습니다` : '비공개로 둔 메뉴에 글이 없습니다');
