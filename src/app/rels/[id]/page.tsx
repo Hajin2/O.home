@@ -454,6 +454,13 @@ export default function RelDetailPage() {
   const qaOn = (isBaseAu ? rel?.qaEnabled : au?.qaEnabled) ?? auQuestions.length > 0;
   const curQa: QaEntry | undefined = auQuestions.find(q => q.no === (qaNo ?? auQuestions[0]?.no));
   /** 질문 하나의 답변 — 옛 자관 안의 것 + 따로 저장된 것 (v2.0). 화면·수정·삭제는 이 목록의 순번을 쓴다 */
+  /* 화면에 보이는 질문 번호 (포크 · 사용자 요청) — 오래된 질문부터 1, 2, 3… 으로 다시 센다.
+     내부 번호(no)는 답변이 붙는 열쇠라 그대로 두고 보이는 숫자만 바꾼다 — 질문을 지우거나 건너뛰면
+     번호가 비지 않고 당겨지며, 다 지우면 1부터 다시 시작한다 */
+  const qaLabel = (no: number) => {
+    const i = [...auQuestions].sort((a, b) => a.no - b.no).findIndex(q => q.no === no);
+    return `Q.${String(i >= 0 ? i + 1 : no).padStart(3, '0')}`;
+  };
   const answersOf = (no: number): MergedAnswer[] =>
     answersFor(qaRows, rel?.id ?? '', au?.id ?? 'base', no, auQuestions.find(q => q.no === no)?.answers ?? []);
   const curAnswers = curQa ? answersOf(curQa.no) : [];
@@ -1215,7 +1222,7 @@ export default function RelDetailPage() {
                 <>
                   {/* 스크롤은 여기까지 — 입력란은 밖에 두어 답변이 길어져도 자리를 지킨다 (v2.0 사용자 발견) */}
                   <div className="qa-answers" ref={ansRef} onScroll={onAnsScroll}>
-                  <div className="qa-no">TODAY&apos;S QUESTION · Q.{String(curQa.no).padStart(3, '0')}
+                  <div className="qa-no">TODAY&apos;S QUESTION · {qaLabel(curQa.no)}
                     {/* 질문에 대한 오너 설명 — 관리자만 작성 (v2.0 사용자 요청) */}
                     {canEdit && (
                       <small style={{ cursor: 'var(--cur-pointer,pointer)', color: 'var(--accent)', marginLeft: 8, fontWeight: 400, letterSpacing: 0 }}
@@ -1312,7 +1319,7 @@ export default function RelDetailPage() {
                   <div key={q.no} className={`qa-item ${curQa?.no === q.no ? 'on' : ''}`} onClick={() => setQaNo(q.no)}
                     data-tip={canEdit ? '우클릭 — 리스트로 되돌리기' : undefined}
                     onContextMenu={e => { if (!canEdit) return; e.preventDefault(); setQaCtx({ x: e.clientX, y: e.clientY, no: q.no }); }}>
-                    <b>Q.{String(q.no).padStart(3, '0')} {q.q}</b>
+                    <b>{qaLabel(q.no)} {q.q}</b>
                     <small>{q.date.slice(5).replace('-', '.')} · 답변 {answersOf(q.no).length}</small>
                   </div>
                 ))}
@@ -1670,7 +1677,7 @@ export default function RelDetailPage() {
       {/* 질문 우클릭 메뉴 (v2.0 사용자 요청) — 여기서 골라야 확인 모달이 뜬다 */}
       {qaCtx && createPortal(
         <div className="ctx-menu on" style={{ left: qaCtx.x, top: qaCtx.y }} onClick={e => e.stopPropagation()}>
-          <div className="ctx-ttl">Q.{String(qaCtx.no).padStart(3, '0')}</div>
+          <div className="ctx-ttl">{qaLabel(qaCtx.no)}</div>
           <button className="danger" onClick={() => {
             const q = auQuestions.find(x => x.no === qaCtx.no);
             setQaCtx(null);
