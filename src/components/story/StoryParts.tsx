@@ -146,8 +146,9 @@ export function StoryBody({ body, style, cast, clamp }: {
         {folded && <span style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 60, background: 'linear-gradient(transparent, var(--panel-solid, #fbfbfc))' }} />}
       </div>
       {clamp && over && (
-        <button type="button" className="btn btn-ghost" style={{ marginTop: 10 }} onClick={() => setMore(!more)}>
-          {more ? '▲ 본문 접기' : '이어 읽기 ▾'}
+        <button type="button" onClick={() => setMore(!more)}
+          style={{ marginTop: 8, padding: '4px 0', background: 'transparent', fontSize: 12.5, fontWeight: 600, color: 'var(--sub, #5d636d)' }}>
+          {more ? '본문 접기 ▴' : '이어 읽기 ▾'}
         </button>
       )}
     </div>
@@ -206,15 +207,13 @@ export function ActionSheet({ open, title, items, onClose }: { open: boolean; ti
   );
 }
 
-/** 오른쪽 아래 ＋ (폰) — 맨 위로 버튼·BGM 바 위로 */
-export function Fab({ onClick, label = '＋' }: { onClick: () => void; label?: string }) {
+/** 머리 줄의 「＋ 쓰기」 (폰) — 떠 있는 버튼은 내용을 가려서 머리 줄로 옮겼다 */
+export function WriteBtn({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-label="새 에피소드"
-      style={{
-        position: 'fixed', right: 18, bottom: 'max(140px, calc(var(--bgm-h, 0px) + 64px))', zIndex: 31,
-        width: 52, height: 52, borderRadius: '50%', background: 'var(--btn-dark, var(--ink))', color: 'var(--btn-dark-fg, #fff)',
-        fontSize: 24, lineHeight: 1, display: 'grid', placeItems: 'center', boxShadow: '0 8px 22px rgba(0,0,0,.32)',
-      }}>{label}</button>
+    <button type="button" onClick={onClick}
+      style={{ height: 34, padding: '0 14px', flex: 'none', borderRadius: 999, background: 'var(--btn-dark, var(--ink))', color: 'var(--btn-dark-fg, #fff)', fontSize: 12.5, fontWeight: 700, whiteSpace: 'nowrap' }}>
+      ＋ 쓰기
+    </button>
   );
 }
 
@@ -252,7 +251,7 @@ export function EpView({ ctx, ep, onEdit, onDeleted, from }: {
   const [cmtOpen, setCmtOpen] = useState(false);
   const nCmt = ctx.cmts.filter(c => c.epId === ep.id).length;
   if (mobile) {
-    // 폰 — 본문 아래엔 「글쓴이 · 날짜 · 💬 · ⋯」 한 줄만. 버튼·등장인물은 ⋯ 메뉴로, 댓글은 💬을 눌러야 펼침
+    // 폰 — 본문 아래엔 「글쓴이 · 날짜 · 댓글 · ⋯」 한 줄만. 버튼·등장인물은 ⋯ 메뉴로, 댓글은 눌러야 펼침
     const castAll = [...main, ...sub];
     const items: SheetItem[] = [
       ...(from !== 'rel' && rel ? [{ label: `${rel.name} 타임라인에서 보기`, href: `/story/rel/${rel.id}?ep=${ep.id}` }] : []),
@@ -273,7 +272,7 @@ export function EpView({ ctx, ep, onEdit, onDeleted, from }: {
           <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ep.author} · {ep.date.slice(5, 10).replace('-', '.')}</span>
           <button type="button" onClick={() => setCmtOpen(!cmtOpen)}
             style={{ marginLeft: 'auto', background: 'transparent', color: cmtOpen ? 'var(--ink)' : 'var(--sub)', fontWeight: cmtOpen ? 700 : 500, fontSize: 12.5, padding: '4px 2px' }}>
-            💬 {nCmt}{cmtOpen ? ' ▴' : ''}
+            댓글 {nCmt} {cmtOpen ? '▴' : '▾'}
           </button>
           <RoundBtn label="더 보기" size={30} onClick={() => setSheet(true)}>⋯</RoundBtn>
         </div>
@@ -312,7 +311,7 @@ export function EpView({ ctx, ep, onEdit, onDeleted, from }: {
 function StoryComments({ ctx, ep, bare }: { ctx: StoryCtx; ep: StoryEp; bare?: boolean }) {
   const toast = useToast();
   const [openState, setOpen] = useState(false);
-  const open = bare || openState;   // bare: 폰 — 💬을 눌러 이미 펼친 상태, 머리 줄 없이
+  const open = bare || openState;   // bare: 폰 — 「댓글 n」을 눌러 이미 펼친 상태, 머리 줄 없이
   const [text, setText] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const list = ctx.cmts.filter(c => c.epId === ep.id).sort((a, b) => a.date.localeCompare(b.date));

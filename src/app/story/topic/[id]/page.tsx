@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import type { StoryEp } from '@/lib/storyStore';
 import { KInput, Pager } from '@/components/ui/Kit';
-import { useStory, EpView, KindBadge, Faces, FAINT, LINE, toTop, exportMany, useIsMobile, ActionSheet, Fab, RoundBtn } from '@/components/story/StoryParts';
+import { useStory, EpView, KindBadge, Faces, FAINT, LINE, toTop, exportMany, useIsMobile, ActionSheet, WriteBtn, RoundBtn } from '@/components/story/StoryParts';
 import { KIND_LABEL } from '@/lib/storyStore';
 import { StoryWrite } from '@/components/story/StoryWrite';
 import { TopicEdit } from '@/components/story/StoryAdmin';
@@ -106,6 +106,7 @@ export default function StoryTopicPage() {
               {topic.desc && <div style={{ fontSize: 12, color: 'var(--page-desc)', marginTop: 2 }}>{topic.desc}</div>}
             </div>
             <RoundBtn label="검색" onClick={() => setFindOpen(!findOpen)}>⌕</RoundBtn>
+            {ctx.canWrite && <WriteBtn onClick={() => setWriting(true)} />}
             <RoundBtn label="더 보기" onClick={() => setSheet(true)}>⋯</RoundBtn>
           </div>
           {(findOpen || q) && (
@@ -115,7 +116,6 @@ export default function StoryTopicPage() {
             { label: '주제 전체 TXT로 저장', onClick: () => exportMany(ctx, topic.name, all) },
             ...(ctx.canWrite ? [{ label: '주제 수정 · 합치기', onClick: () => setTopicEdit(true) }] : []),
           ]} />
-          {ctx.canWrite && <Fab onClick={() => setWriting(true)} />}
         </>
       ) : (<>
       <div style={{ marginBottom: 6 }}><Link href="/story" style={{ fontSize: 12.5, color: 'var(--page-desc)' }}>‹ STORY</Link></div>
@@ -187,7 +187,7 @@ export default function StoryTopicPage() {
                             <div style={{ fontSize: 10.5, color: FAINT }}>{[e.era, KIND_LABEL[e.kind]].filter(Boolean).join(' · ')}</div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <b style={{ fontSize: 15, minWidth: 0, flex: 1, wordBreak: 'keep-all' }}>{e.title}</b>
-                              <span style={{ fontSize: 11, color: FAINT, whiteSpace: 'nowrap' }}>{on ? '접기 ▴' : n ? `💬 ${n}` : '▾'}</span>
+                              <span style={{ fontSize: 11, color: FAINT, whiteSpace: 'nowrap' }}>{on ? '접기 ▴' : n ? `댓글 ${n}` : '▾'}</span>
                             </div>
                           </div>
                         ) : (

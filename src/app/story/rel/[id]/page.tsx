@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import type { StoryEp } from '@/lib/storyStore';
 import { DragList } from '@/components/ui/DragList';
 import { useToast } from '@/components/ui/Toast';
-import { useStory, EpView, KindBadge, Faces, FAINT, LINE, excerpt, exportMany, useIsMobile, ActionSheet, Fab, RoundBtn } from '@/components/story/StoryParts';
+import { useStory, EpView, KindBadge, Faces, FAINT, LINE, excerpt, exportMany, useIsMobile, ActionSheet, WriteBtn, RoundBtn } from '@/components/story/StoryParts';
 import { KIND_LABEL } from '@/lib/storyStore';
 import { StoryWrite } from '@/components/story/StoryWrite';
 
@@ -88,7 +88,7 @@ export default function StoryRelPage() {
               {topic && !mobile && <Link href={`/story/topic/${topic.id}`} onClick={ev => ev.stopPropagation()} className="pill" style={{ marginLeft: 'auto', flex: 'none' }}>{topic.name}</Link>}
             </div>
             {!on && <div style={{ fontSize: mobile ? 12.5 : 13, color: 'var(--sub)', lineHeight: 1.7 }}>{excerpt(e.body, mobile ? 50 : 80)}</div>}
-            {!on && <div style={{ fontSize: 11, color: FAINT }}>{e.author}{n ? (mobile ? ` · 💬 ${n}` : ` · 댓글 ${n}`) : ''}</div>}
+            {!on && <div style={{ fontSize: 11, color: FAINT }}>{e.author}{n ? ` · 댓글 ${n}` : ''}</div>}
           </div>
           {on && (
             <div style={{ marginTop: 10 }}>
@@ -117,6 +117,7 @@ export default function StoryRelPage() {
               <Link href="/story?view=rel" style={{ fontSize: 11, color: 'var(--page-desc)' }}>‹ 커플링 · {world ?? '세계관 미지정'}</Link>
               <h2 style={{ fontSize: 19, fontWeight: 900, color: 'var(--page-title)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rel.name}</h2>
             </div>
+            {ctx.canWrite && <WriteBtn onClick={() => setWriting(true)} />}
             <RoundBtn label="더 보기" onClick={() => setSheet(true)}>⋯</RoundBtn>
           </div>
           <div className="mini-seg" style={{ padding: 3, marginBottom: 10 }}>
@@ -128,7 +129,6 @@ export default function StoryRelPage() {
             ...(canOrder ? [{ label: reorder ? '순서 바꾸기 끝내기' : '순서 바꾸기', onClick: () => { setReorder(!reorder); setOpenEp(null); } }] : []),
             { label: '자관 페이지로', href: `/rels/${rel.slug || rel.id}` },
           ]} />
-          {ctx.canWrite && !reorder && <Fab onClick={() => setWriting(true)} />}
         </>
       ) : (<>
       <div style={{ marginBottom: 6 }}><Link href="/story?view=rel" style={{ fontSize: 12.5, color: 'var(--page-desc)' }}>‹ 커플링으로</Link></div>

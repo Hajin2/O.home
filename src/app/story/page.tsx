@@ -7,7 +7,7 @@ import type { StoryEp } from '@/lib/storyStore';
 import { EditableDesc, PageTitle } from '@/components/ui/PageText';
 import { KInput, Pager } from '@/components/ui/Kit';
 import { Face } from '@/components/ifs/IfParts';
-import { useStory, Faces, FAINT, toTop, exportMany, useIsMobile, ActionSheet, Fab, RoundBtn } from '@/components/story/StoryParts';
+import { useStory, Faces, FAINT, toTop, exportMany, useIsMobile, ActionSheet, WriteBtn, RoundBtn } from '@/components/story/StoryParts';
 import { StoryWrite } from '@/components/story/StoryWrite';
 import { StoryImport, CatManager } from '@/components/story/StoryAdmin';
 
@@ -97,13 +97,13 @@ export default function StoryPage() {
             <div className="page-head" style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
               <PageTitle>STORY</PageTitle>
             </div>
+            {ctx.canWrite && <WriteBtn onClick={() => setWriting(true)} />}
             <RoundBtn label="더 보기" onClick={() => setSheet(true)}>⋯</RoundBtn>
           </div>
           <ActionSheet open={sheet} title="STORY" onClose={() => setSheet(false)} items={[
             { label: '전체 TXT로 저장', onClick: exportAll },
             ...(ctx.canWrite ? [{ label: '여러 편 가져오기', onClick: () => setImporting(true) }, { label: '카테고리 관리', onClick: () => setCatOpen(true) }] : []),
           ]} />
-          {ctx.canWrite && <Fab onClick={() => setWriting(true)} />}
         </>
       ) : (
       <div className="page-head">
@@ -139,7 +139,7 @@ export default function StoryPage() {
             </>
           )}
         </div>
-        <KInput placeholder={view === 'topic' ? '주제 · 캐릭터 · 자관 · 본문 검색' : '자관 · 캐릭터 · 본문 검색'} value={q}
+        <KInput placeholder={mobile ? '검색' : view === 'topic' ? '주제 · 캐릭터 · 자관 · 본문 검색' : '자관 · 캐릭터 · 본문 검색'} value={q}
           onChange={e => { setQ(e.target.value); setPage(1); }} style={mobile ? { flex: 1, minWidth: 0 } : { maxWidth: 260, marginLeft: 'auto' }} />
       </div>
 
