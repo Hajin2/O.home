@@ -20,6 +20,7 @@ import {
   readNotifs, markRead, markAllRead, clearReadNotifs, notifSettings, setNotifSetting, syncNotifs, selfTestNotif,
 } from '@/lib/notifStore';
 import { subscribeTable } from '@/lib/db';
+import { MobileNav } from './MobileNav';   // 포크: 폰 메뉴 (☰)
 
 const BellIcon = () => (
   <svg viewBox="0 0 24 24">
@@ -147,6 +148,8 @@ export function TopBar() {
 
   return (
     <header className="topbar">
+      {/* 폰 메뉴 ☰ — 폰에서만 보인다 (포크) */}
+      <MobileNav menu={menu} nav={nav} dotHrefs={dotHrefs} title={siteLoaded ? site.title : undefined} />
       {/* 로고 — 텍스트·서브타이틀·정렬은 환경설정 > 디자인 (5.2) */}
       <div className="brand" onClick={() => nav('/')}>
         {siteLoaded && site.title}
