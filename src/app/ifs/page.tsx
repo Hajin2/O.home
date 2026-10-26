@@ -442,7 +442,8 @@ export default function IfPage() {
                     <div key={g.key} style={{ marginTop: 10 }}>
                       {g.label && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0 2px' }}>
-                          <span style={{ fontSize: 11.5, fontWeight: 800, padding: '2px 10px', borderRadius: 999, background: 'var(--ink, #222)', color: 'var(--bg, #fff)' }}>
+                          {/* 자관 이름표 — 옅은 배경 + 진한 글씨 (사용자 요청 — 검정 덩어리가 여러 개면 시선이 흩어졌다). 홈 글자색을 섞어 테마를 따른다 */}
+                          <span style={{ fontSize: 11.5, fontWeight: 800, padding: '2px 10px', borderRadius: 999, background: 'color-mix(in srgb, var(--ink, #1d2025) 8%, transparent)', color: 'color-mix(in srgb, var(--ink, #1d2025) 82%, transparent)' }}>
                             {g.rel ? <a href={`/rels/${g.rel.slug || g.rel.id}`} style={{ color: 'inherit' }}>#{g.label}</a> : `#${g.label}`}
                           </span>
                           {g.rel && c.refs.some(r => r.rel.id === g.rel!.id) && <span style={{ fontSize: 10.5, color: FAINT }}>자관 문답</span>}
