@@ -169,8 +169,12 @@ export function ChatView({ talk, me, charOf, onOpenImg, onFillImg, selected, onS
         const time = end && m.time ? <span style={{ flex: 'none', fontSize: 10.5, color: TK.time, whiteSpace: 'nowrap' }}>{m.time}</span> : null;
         if (mine) {
           return wrap(
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 5, marginTop: start ? 8 : 4, paddingLeft: 52 }}>
-              {time}<div style={{ minWidth: 0, maxWidth: 'min(440px, 100%)', display: 'flex', justifyContent: 'flex-end' }}>{bubble}</div>
+            <div style={{ marginTop: start ? 8 : 4, paddingLeft: 52 }}>
+              {/* 오른쪽(나)에도 이름 — 보는 사람이 「나」가 누군지 알 수 있게 (사용자 요청) */}
+              {start && <div style={{ fontSize: 12, color: TK.name, marginBottom: 3, textAlign: 'right' }}>{mem?.name ?? m.who}</div>}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 5 }}>
+                {time}<div style={{ minWidth: 0, maxWidth: 'min(440px, 100%)', display: 'flex', justifyContent: 'flex-end' }}>{bubble}</div>
+              </div>
             </div>,
           );
         }
