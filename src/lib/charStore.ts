@@ -48,6 +48,9 @@ export interface Character {
   /** 상세 페이지 중앙 아트의 위치 (v2.0) — 리스트 썸네일과 보이는 크기·비율이 달라
    *  같은 크롭을 쓰면 원하는 부분이 안 나온다. 따로 잡으면 상세에서는 이 값을 쓴다. */
   artCrop?: import("@/components/ui/CropEditor").CropValue;
+  /** 그 위치를 잡을 때의 대표 아트 (포크) — 대표 아트를 바꾸면 옛 그림의 확대·위치가 새 그림에 붙어
+   *  엉뚱하게 크게 잘려 보였다. 같은 그림일 때만 쓴다 (없으면 예전 값 — 그대로 쓴다) */
+  artCropRef?: string;
   arts?: string[];       // 아트 목록 (IndexedDB — 첫 장이 대표 풀 아트이자 썸네일 원본)
   artId?: string;        // (구) 단일 풀 아트
   artUrl?: string;       // (구) 풀 아트 URL
@@ -88,6 +91,7 @@ export interface AuCharProfile {
   thumbId?: string;
   thumbCrop?: import("@/components/ui/CropEditor").CropValue;
   artCrop?: import("@/components/ui/CropEditor").CropValue;   // 상세 중앙 아트 위치 (v2.0)
+  artCropRef?: string;   // 그 위치를 잡은 그림 (포크)
   fontId?: string;
   nameSize?: number;     // 상세 큰 이름 크기 px (v2.0)
   nameBold?: boolean;    // 상세 큰 이름 굵게 (v2.0 사용자 요청 — 폰트에 따라 볼드가 안 어울린다)
@@ -117,6 +121,9 @@ export function charWithAu(c: Character, auKey?: string | null): Character {
     artId: p.arts?.[0],
     thumbId: p.thumbId,
     thumbCrop: p.thumbCrop,
+    // 상세 아트 위치도 그림처럼 AU 것만 (포크) — 예전엔 원본 그림의 위치·확대가 AU 그림에 붙어 크게 잘려 보였다
+    artCrop: p.artCrop,
+    artCropRef: p.artCropRef,
     ...(p.fontId !== undefined ? { fontId: p.fontId } : {}),
     ...(p.bodyFontId !== undefined ? { bodyFontId: p.bodyFontId } : {}),
     // nameSize는 여태 병합에 빠져 있었다 — AU에 저장은 되는데 표시가 base 크기를 따랐다 (v2.0 수정)

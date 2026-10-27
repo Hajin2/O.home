@@ -76,13 +76,16 @@ function CharDetailInner() {
   const eff = ch ? charWithAu(ch, auKey) : undefined;
 
   /** 상세 화면 아트 위치 저장 (v2.0) — AU를 보는 중이면 그 AU에만, 아니면 원본에 */
-  const saveArtCrop = (c: CropValue | undefined) => {
+  const saveArtCrop = (c: CropValue | undefined, ref?: string) => {
+    const artCropRef = c ? ref : undefined;   // 어느 그림의 위치인지 같이 적는다 (포크)
     setChars(chars.map(x => {
       if (x.id !== id) return x;
-      if (!auKey) return { ...x, artCrop: c };
-      return { ...x, auProfiles: { ...x.auProfiles, [auKey]: { ...x.auProfiles?.[auKey], artCrop: c } } };
+      if (!auKey) return { ...x, artCrop: c, artCropRef };
+      return { ...x, auProfiles: { ...x.auProfiles, [auKey]: { ...x.auProfiles?.[auKey], artCrop: c, artCropRef } } };
     }));
   };
+  /** 지금 대표 아트에 맞는 위치만 — 그림을 바꿨으면 옛 위치는 버리고 가운데 기준 (포크) */
+  const artCropFor = (ref?: string) => (eff?.artCrop && (!eff.artCropRef || eff.artCropRef === ref) ? eff.artCrop : undefined);
 
   // AU 전환 시 탭 구성·아트가 달라지므로 리셋
   useEffect(() => { setTab('basic'); setArtIdx(0); }, [auKey]);
@@ -243,7 +246,7 @@ function CharDetailInner() {
               {/* 리스트 썸네일 크롭은 3:4 기준이라 여기(화면 높이에 따라 비율이 달라지는 영역)에는
                   맞지 않는다 — 여기서 따로 잡은 값이 있을 때만 쓰고, 없으면 가운데 기준 (v2.0) */}
               <CroppedBlobImg fileRef={arts[cur] ?? eff.artUrl}
-                crop={cur === 0 ? eff.artCrop : undefined}
+                crop={cur === 0 ? artCropFor(arts[0]) : undefined}
                 ph={ch.thumbClass} label="CHARACTER FULL ART" />
               {arts.length > 1 && (
                 <div style={{ position: 'absolute', left: 0, right: 0, bottom: 12, display: 'flex', justifyContent: 'center', gap: 5, zIndex: 3 }}>
@@ -332,9 +335,9 @@ function CharDetailInner() {
         document.body,
       )}
       {artCropOpen && (
-        <ArtCropModal fileRef={artCropOpen.ref} ratio={artCropOpen.ratio} crop={eff?.artCrop}
+        <ArtCropModal fileRef={artCropOpen.ref} ratio={artCropOpen.ratio} crop={artCropFor(artCropOpen.ref)}
           onClose={() => setArtCropOpen(null)}
-          onApply={c => { saveArtCrop(c); setArtCropOpen(null); }} />
+          onApply={c => { saveArtCrop(c, artCropOpen.ref); setArtCropOpen(null); }} />
       )}
       {/* 떠 있는 이동 버튼 — 맨 위로 · 이전/다음 캐릭터 · 목록 (포크) */}
       <CharNav chars={chars} cur={ch} listHref={tt.href} />

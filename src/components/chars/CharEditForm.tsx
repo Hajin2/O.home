@@ -2,7 +2,7 @@
 // 캐릭터 등록/프로필 편집 — 전용 페이지 폼 (4.4)
 // 모달이 아니라 페이지라 잘못 클릭해도 닫히지 않음. 탭 내용은 별도 편집 화면으로 전환해 작성.
 // 아트는 여러 장 — 첫 장이 대표 풀 아트이자 리스트 썸네일(3:4 크롭) 원본 (6.1)
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Character, CharTab, ColorChip, Visibility, CharGrant } from '@/lib/charStore';
 import { GrantsEditor } from '@/components/chars/GrantsEditor';
@@ -79,6 +79,14 @@ export function CharEditForm({ initial, onSave, onCancel, auMode, existingIds, w
     return refs.map(r => ({ id: newId(), ref: r }));
   });
   const [thumbCrop, setThumbCrop] = useState<CropValue | undefined>(initial?.thumbCrop);
+  // 첫 장(썸네일 원본)이 바뀌면 옛 그림의 썸네일 위치는 버린다 (포크) — 순서를 바꾸거나 첫 장을 지우면
+  // 옛 확대·위치가 새 그림에 그대로 붙어 엉뚱하게 크게 잘려 보였다
+  const firstArt = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const now = arts[0]?.id;
+    if (firstArt.current !== undefined && firstArt.current !== now) setThumbCrop(undefined);
+    firstArt.current = now ?? '';
+  }, [arts]);
   const [grants, setGrants] = useState<CharGrant[]>(initial?.grants ?? []); // 상대 캐릭터 회원 권한 (v1.9)
   const [cropOpen, setCropOpen] = useState(false);
   const [lb, setLb] = useState<number | null>(null);   // 아트 썸네일 클릭 → 원본 보기

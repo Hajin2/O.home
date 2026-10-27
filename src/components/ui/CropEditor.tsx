@@ -34,12 +34,34 @@ export function CropImg({ src, crop, alt }: { src: string; crop?: CropValue; alt
   const wrapRef = useRef<HTMLDivElement>(null);
   const natRef = useRef<{ w: number; h: number } | null>(null);
   const [wide, setWide] = useState<boolean | null>(null);
+  const [fit, setFit] = useState<CropValue | undefined>(crop);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const cropRef = useRef(crop);
+  cropRef.current = crop;   // 창 크기 감시(ResizeObserver)는 처음 만든 함수를 계속 쓰므로 최신 값은 ref로
   const compute = () => {
+    const crop = cropRef.current;
     const r = wrapRef.current?.getBoundingClientRect();
+    // 이미 받아 둔 그림이면 화면이 붙기 전에 load가 끝나 onLoad를 놓칠 수 있다 — complete로도 크기를 잡는다
+    const im = imgRef.current;
+    if (!natRef.current && im?.complete && im.naturalWidth > 0) natRef.current = { w: im.naturalWidth, h: im.naturalHeight };
     const n = natRef.current;
-    if (r && n && r.width > 1 && r.height > 1) setWide(n.w / n.h >= r.width / r.height);
+    if (r && n && r.width > 1 && r.height > 1) {
+      const natR = n.w / n.h, frameR = r.width / r.height;
+      const w = natR >= frameR;
+      setWide(w);
+      // 저장한 위치는 그때 칸 비율 기준 — 칸 모양이 바뀌면(레이아웃 변경·창 크기) 그림 밖이 비어 보일 수 있어
+      // 지금 칸에 맞게 위치만 다시 조인다 (확대 배율은 그대로) (포크)
+      if (crop) {
+        const coverW = w ? natR / frameR : 1, coverH = w ? 1 : frameR / natR;
+        const sc = Math.min(3, Math.max(1, crop.scale));
+        const mx = Math.max(0, (sc * coverW - 1) / 2), my = Math.max(0, (sc * coverH - 1) / 2);
+        setFit({ scale: sc, x: Math.min(mx, Math.max(-mx, crop.x)), y: Math.min(my, Math.max(-my, crop.y)) });
+      } else setFit(undefined);
+    }
   };
+  useEffect(() => { compute(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [crop?.x, crop?.y, crop?.scale]);
   useEffect(() => {
+    natRef.current = null;   // 그림이 바뀌면 옛 그림 크기를 버린다
     compute();
     const el = wrapRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
@@ -51,9 +73,9 @@ export function CropImg({ src, crop, alt }: { src: string; crop?: CropValue; alt
   return (
     <div ref={wrapRef} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt ?? ''} draggable={false} decoding="async"
+      <img ref={imgRef} src={src} alt={alt ?? ''} draggable={false} decoding="async"
         onLoad={e => { const im = e.currentTarget; natRef.current = { w: im.naturalWidth, h: im.naturalHeight }; compute(); }}
-        style={wide == null ? { opacity: 0 } : coverImgStyle(crop, wide)} />
+        style={wide == null ? { opacity: 0 } : coverImgStyle(fit, wide)} />
     </div>
   );
 }
