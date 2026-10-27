@@ -13,7 +13,7 @@ import { useToast } from '@/components/ui/Toast';
 import { guessChar } from '@/components/ifs/IfParts';
 import { useIsMobile } from '@/components/story/StoryParts';
 import {
-  ChatView, MemberEditor, RoomState, TalkAvatar, TalkImgBox, membersFromRels, uploadTalkImg, useFilePick, FAINT, LINE, type TalkCtx,
+  ChatView, MemberEditor, RoomState, TalkAvatar, TimePick, TalkImgBox, membersFromRels, uploadTalkImg, useFilePick, FAINT, LINE, type TalkCtx,
 } from './TalkParts';
 
 type Tab = 'file' | 'paste' | 'direct' | 'caps';
@@ -209,7 +209,7 @@ export function TalkWrite({ ctx, open, onClose, edit, initRel, onSaved }: {
             </button>
           ))}
           <span style={{ marginLeft: 6 }}>시간</span>
-          <KInput value={m.time ?? ''} onChange={e => patchMsg(m.id, { time: e.target.value || undefined })} placeholder="오전 3:02" style={{ width: 96, padding: '4px 8px' }} />
+          <TimePick value={m.time} onChange={v => patchMsg(m.id, { time: v || undefined })} />
         </div>
       )}
     </div>
@@ -258,6 +258,7 @@ export function TalkWrite({ ctx, open, onClose, edit, initRel, onSaved }: {
         .mng-box:has(.talk-write){width:min(900px,96vw);max-height:92vh}
         .talk-write,.talk-write>*{min-width:0;max-width:100%}
         .talk-write .grid3{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1.3fr) minmax(0,.8fr);gap:12px 14px}
+        .talk-write .btn,.talk-room .btn{white-space:nowrap;flex:none}
         .talk-write .tabs{display:flex;gap:2px;border-bottom:1px solid ${LINE};overflow-x:auto;scrollbar-width:none}
         .talk-write .tabs::-webkit-scrollbar{display:none}
         .talk-write .tabs button{flex:none;padding:8px 12px;font-size:13px;background:transparent;color:var(--sub);border-bottom:2.5px solid transparent;white-space:nowrap}
@@ -374,7 +375,7 @@ export function TalkWrite({ ctx, open, onClose, edit, initRel, onSaved }: {
                       </button>
                     ))}
                     {f.members.length === 0 && <span style={{ fontSize: 12, color: FAINT }}>말할 사람이 없어요 — 위 「대화방 설정」에서 사람을 넣어 주세요</span>}
-                    <KInput value={time} onChange={e => setTime(e.target.value)} placeholder="시간 (선택)" style={{ width: 104, marginLeft: 'auto', padding: '5px 9px' }} />
+                    <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: FAINT }}>시간<TimePick value={time} onChange={setTime} /></span>
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end' }}>
                     <KTextarea rows={1} value={text} onChange={e => setText(e.target.value)}
@@ -389,8 +390,9 @@ export function TalkWrite({ ctx, open, onClose, edit, initRel, onSaved }: {
                     <span style={{ fontSize: 11.5, color: FAINT, marginLeft: 'auto' }}>말풍선을 누르면 고치기 · 지우기 · 옮기기 · 말한 사람 바꾸기 · {nSaid}줄</span>
                   </div>
                   {lineKind && (
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <KInput value={lineText} onChange={e => setLineText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addLine(); }} autoFocus
+                        style={{ flex: '1 1 220px', minWidth: 0 }}
                         placeholder={lineKind === 'date' ? '2025년 12월 3일 수요일' : '중간 생략 · 입장 · 나감'} />
                       <button type="button" className="btn btn-dark" onClick={addLine}>{lineKind === 'date' ? '날짜 줄 넣기' : '안내 줄 넣기'}</button>
                       <button type="button" className="btn btn-ghost" onClick={() => setLineKind(null)}>취소</button>

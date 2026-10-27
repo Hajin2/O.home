@@ -13,7 +13,7 @@ import { pushNotif } from '@/lib/notifStore';
 import { nameColor } from '@/lib/ifStore';
 import {
   TalkPost, TalkComment, TalkMember, TalkMsg, TalkImg, TALK_KEY, TALK_CMT_KEY,
-  speakersOf, isGroup, otherOf, fmtDay,
+  speakersOf, isGroup, otherOf, fmtDay, toKTime, fromKTime,
 } from '@/lib/talkStore';
 import { CroppedBlobImg } from '@/components/ui/CropEditor';
 import { CharPicker, FAINT, LINE } from '@/components/ifs/IfParts';
@@ -63,7 +63,8 @@ export function useFilePick(onFiles: (files: File[]) => void, multiple = true) {
 /* ---------- 프로필 ---------- */
 export function TalkAvatar({ m, ch, size = 36 }: { m?: TalkMember; ch?: Character; size?: number }) {
   const r = Math.round(size * .38);
-  const box: React.CSSProperties = { position: 'relative', flex: 'none', width: size, height: size, borderRadius: r, overflow: 'hidden' };
+  // inline-block — 말풍선 화면에선 글자 줄 안에 놓여서, 이게 없으면 폭·높이가 0이 되어 그림이 안 보였다
+  const box: React.CSSProperties = { position: 'relative', display: 'inline-block', verticalAlign: 'middle', flex: 'none', width: size, height: size, borderRadius: r, overflow: 'hidden' };
   const img = useBlobUrl(m?.av === 'img' ? m.avImg : undefined);
   const label = m?.name || ch?.name || '?';
   if (m?.av === 'img' && img) {
@@ -436,7 +437,7 @@ export function MemberEditor({ ctx, st, set, msgs, relIds }: {
                   <span style={{ flex: 1, height: 1, background: LINE }} />
                 </div>
               )}
-              <div style={{ display: 'flex', gap: 12, padding: '10px 0', borderTop: i && !(twoRows && i === 1) ? `1px solid ${LINE}` : 'none', opacity: silent ? .6 : 1 }}>
+              <div style={{ display: 'flex', gap: 12, padding: '10px 0', borderTop: i && !(twoRows && i === 1) ? `1px solid ${LINE}` : 'none' }}>
                 <TalkAvatar m={m} ch={ch} size={48} />
                 <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, color: FAINT }}>
@@ -556,6 +557,17 @@ export function RelTalkPanel({ rel }: { rel: Relation }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/** 시간 고르기 — 직접 쓰지 않고 시계에서 고른다 (카톡처럼 「오전 3:02」로 저장) */
+export function TimePick({ value, onChange, width = 120 }: { value?: string; onChange: (v: string) => void; width?: number }) {
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 2, flex: 'none' }}>
+      <input type="time" className="k-input" value={fromKTime(value)} onChange={e => onChange(toKTime(e.target.value))}
+        aria-label="시간" style={{ width, padding: '4px 8px', fontSize: 12.5 }} />
+      {value && <button type="button" aria-label="시간 지우기" onClick={() => onChange('')} style={{ background: 'transparent', color: FAINT, fontSize: 12, padding: '2px 4px' }}>✕</button>}
+    </span>
   );
 }
 

@@ -213,4 +213,17 @@ export function talkToText(p: TalkPost): string {
   return out.join('\n') + '\n';
 }
 
+/** 「오전 3:02」 ↔ 시간 고르기 칸의 「03:02」 */
+export function toKTime(hm: string): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec(hm);
+  return m ? ampm(+m[1], m[2]) : '';
+}
+export function fromKTime(k?: string): string {
+  const m = /(오전|오후)\s*(\d{1,2}):(\d{2})/.exec(k ?? '');
+  if (!m) return '';
+  let h = +m[2] % 12;
+  if (m[1] === '오후') h += 12;
+  return `${String(h).padStart(2, '0')}:${m[3]}`;
+}
+
 export const fmtDay = (iso: string) => iso.slice(0, 10).replace(/-/g, '.');

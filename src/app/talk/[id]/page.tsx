@@ -168,7 +168,7 @@ export default function TalkViewPage() {
       <TalkWrite ctx={ctx} open={editing} onClose={() => setEditing(false)} edit={talk} />
       <Modal open={roomOpen} onClose={() => setRoomOpen(false)} title="대화방 설정" dirty
         actions={<><button className="btn btn-ghost" onClick={() => setRoomOpen(false)}>CANCEL</button><button className="btn btn-dark" onClick={saveRoom}>SAVE</button></>}>
-        <style>{`.mng-box:has(.talk-room){width:min(640px,96vw)}@media (max-width:720px){.mng-box:has(.talk-room){width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;padding:18px 14px}}`}</style>
+        <style>{`.talk-room .btn{white-space:nowrap;flex:none}.mng-box:has(.talk-room){width:min(640px,96vw)}@media (max-width:720px){.mng-box:has(.talk-room){width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0;padding:18px 14px}}`}</style>
         <div className="talk-room">
           {room && <MemberEditor ctx={ctx} st={room} set={p => setRoom({ ...room, ...p })} msgs={talk.msgs} relIds={talk.relIds ?? []} />}
         </div>
