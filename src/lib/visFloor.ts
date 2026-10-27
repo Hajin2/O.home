@@ -37,6 +37,8 @@ const AREA: Record<string, { kind?: SectionKind; href?: string; board?: boolean 
   story_topics: { href: '/story' },
   story_cats: { href: '/story' },
   story_comments: { href: '/story' },
+  talk_posts: { href: '/talk' },       // TALK (포크)
+  talk_comments: { href: '/talk' },
   rp_rooms: { href: '/rp' },
   characters: { kind: 'chars' },
   relations: { href: '/rels' },

@@ -51,7 +51,8 @@ service cloud.firestore {
         'trpg_logs', 'trpg_log_bodies', 'trpg_chars', 'dotori', 'playlog', 'rp_rooms', 'threads',
         'diary', 'memos', 'commissions', 'applicants', 'moods', 'comments', 'qa_answers', 'rp_messages',
         'notifications', 'push_subs', 'if_posts', 'if_reactions',
-        'story_eps', 'story_topics', 'story_cats', 'story_comments'
+        'story_eps', 'story_topics', 'story_cats', 'story_comments',
+        'talk_posts', 'talk_comments'
       ];
     }
 

@@ -37,6 +37,7 @@ import { useToast } from '@/components/ui/Toast';
 import { PageTitle } from '@/components/ui/PageText';
 import { RelIfPanel } from '@/components/ifs/RelIfPanel';   // IF 썰 (포크)
 import { RelStoryPanel } from '@/components/story/StoryPanels';   // STORY (포크)
+import { RelTalkPanel } from '@/components/talk/TalkParts';       // TALK (포크)
 
 /** 타임라인·문답 탭 줄 버튼 (포크) — 흰 버튼은 테두리(1.5px)가 높이에 더해져 검은 버튼보다 3px 커서
  *  한 줄에 놓으면 들쭉날쭉했다. 테두리를 높이 안에 넣어 모두 35px로 맞춘다 */
@@ -1332,6 +1333,7 @@ export default function RelDetailPage() {
       {/* IF 썰 (포크) — IF에서 이 자관으로 달았지만 자관 문답에 못 들어간 반응. 없으면 칸도 없음 */}
       <RelIfPanel rel={rel} chars={chars} />
       <RelStoryPanel rel={rel} />
+      <RelTalkPanel rel={rel} />
 
       {/* 역극 · 로그 연동 리스트 (4.5) — 역극: 내 참여 방 + 공개 전환된 완결 방.
           AU마다 숨길 수 있다 (v2.0 사용자 요청 — AU 관리의 체크박스). 둘 다 숨기면 칸 자체가 없다 */}

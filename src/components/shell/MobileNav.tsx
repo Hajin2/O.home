@@ -3,6 +3,7 @@
 // 폰 폭(620px 이하)에서는 상단 메뉴 줄(.gnb)이 통째로 숨어서 다른 메뉴로 갈 길이 없었다.
 // 로고 왼쪽에 ☰를 두고, 누르면 왼쪽에서 메뉴 패널이 나온다. 목록은 상단 바와 같은 buildMenu 결과
 // (메뉴 관리의 순서·묶음·권한 그대로)를 받으므로 따로 설정할 것이 없다. PC에서는 버튼 자체가 안 보인다.
+// 폰 폭에서는 상단 바 간격을 줄이고 닉네임 글자를 숨긴다 — ☰가 들어가며 좁은 폰(360px)에서 가로로 밀리던 것 (아바타·알림은 그대로)
 // 새 파일로 따로 둔 이유: 원작 저장소 업데이트(Sync fork)와 충돌하지 않게 (TopBar에서는 한 줄만 부른다).
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -12,7 +13,7 @@ import type { MenuItem } from '@/lib/menu';
 const CSS = `
 .m-burger{display:none;width:34px;height:34px;margin-left:-6px;flex:none;place-items:center;background:transparent;color:var(--top-brand,#f2f3f5);cursor:var(--cur-pointer,pointer)}
 .m-burger svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
-@media (max-width:620px){.m-burger{display:grid}}
+@media (max-width:620px){.m-burger{display:grid}.topbar{gap:8px;padding:0 12px}.topbar .user-chip{gap:7px;padding:6px 4px;font-size:0}.topbar .user-chip>*{font-size:calc(12px*var(--fs,1))}}
 .m-nav-ov{position:fixed;inset:0;z-index:110;background:rgba(15,17,20,.45);animation:mnav-fade .16s ease}
 .m-nav{position:fixed;left:0;top:0;bottom:0;z-index:111;width:min(280px,82vw);background:var(--panel-solid,#fbfbfc);color:var(--ink);
   box-shadow:10px 0 30px rgba(0,0,0,.22);display:flex;flex-direction:column;animation:mnav-in .2s ease;padding-bottom:env(safe-area-inset-bottom)}

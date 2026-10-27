@@ -30,6 +30,7 @@ export const FEATURES: { href: string; label: string }[] = [
   { href: '/memo', label: '메모장' },
   { href: '/ifs', label: 'IF' },   // IF 썰 (포크)
   { href: '/story', label: 'STORY' },   // STORY (포크)
+  { href: '/talk', label: 'TALK' },     // TALK — 카톡 썰 보관함 (포크)
   { href: '/guest', label: '방명록' },
   { href: '/intro', label: '소개' },
 ];

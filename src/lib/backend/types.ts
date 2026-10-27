@@ -141,6 +141,8 @@ export const COLLECTION_OF: Record<string, string> = {
   'ohome.storytopics.v1': 'story_topics',
   'ohome.storycats.v1': 'story_cats',
   'ohome.storycmts.v1': 'story_comments',
+  'ohome.talk.v1': 'talk_posts',          // TALK (포크)
+  'ohome.talkcmts.v1': 'talk_comments',
 };
 
 export const CONTENT_COLLECTIONS = Object.values(COLLECTION_OF);
