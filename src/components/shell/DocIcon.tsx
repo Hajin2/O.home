@@ -9,13 +9,17 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useSiteSettings } from '@/lib/siteStore';
 import { useBlobUrl } from '@/lib/blobStore';
+import { siteIconHref } from '@/lib/siteIcon';
 
 const MARK = 'ohome-favicon';
 const ORIG = 'data-ohome-icon-orig';   // 남의 링크를 덮어쓰기 전 원래 주소
 
 export function DocIcon() {
   const [site, , loaded] = useSiteSettings();
-  const url = useBlobUrl(site.favicon);
+  // 저장소 주소면 우리 중계 주소로 (포크 · 비용 — lib/siteIcon), 로컬 파일이면 예전처럼
+  const blobUrl = useBlobUrl(site.favicon);
+  const relay = siteIconHref(site.favicon);
+  const url = relay && relay.startsWith('/api/') && typeof window !== 'undefined' ? new URL(relay, window.location.origin).href : blobUrl;
   const pathname = usePathname();
 
   useEffect(() => {

@@ -23,6 +23,7 @@ import { PageFrame } from '@/lib/pageRefresh';
 import { MenuGuard } from '@/components/shell/MenuGuard';
 import { ServerBoot } from '@/components/shell/ServerBoot';
 import { siteMeta } from '@/lib/siteMeta';
+import { siteIconHref } from '@/lib/siteIcon';
 import { ScrollTopButton } from '@/components/shell/ScrollTop';   // 포크: 맨 위로 버튼
 
 /**
@@ -31,7 +32,9 @@ import { ScrollTopButton } from '@/components/shell/ScrollTop';   // 포크: 맨
  * 여기서 같은 설정을 한 번 읽어 제목을 맞춘다 (읽기 실패하면 기본값).
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const { title, subtitle, crawlDesc, favicon } = await siteMeta();
+  const { title, subtitle, crawlDesc, favicon: rawIcon } = await siteMeta();
+  // 저장소 주소를 그대로 걸지 않고 우리 중계 주소로 (포크 · lib/siteIcon — 호주로 내려받는 몫이 청구되던 것)
+  const favicon = siteIconHref(rawIcon);
   // 크롤링 설명 문구 (v2.0 사용자 요청) — 환경설정에서 직접 지정 > 서브타이틀 > 기본 문구
   const description = crawlDesc?.trim() || subtitle?.trim() || '자캐놀이용 개인 아카이브';
   return {
