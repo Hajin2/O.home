@@ -2,6 +2,7 @@
 // 자관 상세의 떠 있는 이동 버튼 — 맨 위로 · 이전 자관 · 다음 자관 · 목록 (로그 상세의 LogNav와 같은 모양)
 // 이전/다음은 자관 목록 순서 그대로, 이 사람이 열 수 있는 자관만.
 // 새 파일로 따로 둔 이유: 원작 저장소가 업데이트돼도 충돌하지 않게.
+import { FloatNav } from '@/components/ui/FloatNav';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -39,13 +40,13 @@ export function RelNav({ rels, cur, listHref = '/rels' }: { rels: Relation[]; cu
   const off = (on: boolean): React.CSSProperties => (on ? {} : { opacity: .35, cursor: 'default' });
 
   return (
-    <div style={{ position: 'fixed', right: 22, bottom: 92, display: 'grid', gap: 8, zIndex: 30 }}>
+    <FloatNav style={{ right: 22, bottom: 92 }}>
       {scrolled && <button type="button" style={btn} onClick={top} title="맨 위로" aria-label="맨 위로">↑</button>}
       <button type="button" style={{ ...btn, ...off(!!prev) }} disabled={!prev} title={prev ? `이전 자관 · ${prev.name}` : '이전 자관 없음'}
         aria-label="이전 자관" onClick={() => prev && router.push(relPath(prev))}>‹</button>
       <button type="button" style={{ ...btn, ...off(!!next) }} disabled={!next} title={next ? `다음 자관 · ${next.name}` : '다음 자관 없음'}
         aria-label="다음 자관" onClick={() => next && router.push(relPath(next))}>›</button>
       <button type="button" style={{ ...btn, fontSize: 13 }} onClick={() => router.push(listHref)} title="자관 목록으로" aria-label="자관 목록으로">☰</button>
-    </div>
+    </FloatNav>
   );
 }

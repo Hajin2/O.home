@@ -3,6 +3,7 @@
 // 이전/다음은 캐릭터 목록과 같은 기준: 같은 섹션(목록)의 내 캐릭터, 목록 순서 그대로,
 // 비공개는 관리자만 (지금 보고 있는 캐릭터는 늘 포함). 세계관·태그 거르기는 따르지 않는다.
 // 새 파일로 따로 둔 이유: 원작 저장소가 업데이트돼도 충돌하지 않게.
+import { FloatNav } from '@/components/ui/FloatNav';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -43,13 +44,13 @@ export function CharNav({ chars, cur, listHref }: { chars: Character[]; cur: Cha
   const off = (on: boolean): React.CSSProperties => (on ? {} : { opacity: .35, cursor: 'default' });
 
   return (
-    <div style={{ position: 'fixed', right: 22, bottom: 'max(92px, calc(var(--bgm-h, 0px) + 16px))', display: 'grid', gap: 8, zIndex: 30 }}>
+    <FloatNav style={{ right: 22, bottom: 'max(92px, calc(var(--bgm-h, 0px) + 16px))' }}>
       {scrolled && <button type="button" style={btn} onClick={top} title="맨 위로" aria-label="맨 위로">↑</button>}
       <button type="button" style={{ ...btn, ...off(!!prev) }} disabled={!prev} title={prev ? `이전 캐릭터 · ${prev.name}` : '이전 캐릭터 없음'}
         aria-label="이전 캐릭터" onClick={() => prev && router.push(charPath(prev))}>‹</button>
       <button type="button" style={{ ...btn, ...off(!!next) }} disabled={!next} title={next ? `다음 캐릭터 · ${next.name}` : '다음 캐릭터 없음'}
         aria-label="다음 캐릭터" onClick={() => next && router.push(charPath(next))}>›</button>
       <button type="button" style={{ ...btn, fontSize: 13 }} onClick={() => router.push(listHref)} title="목록으로" aria-label="목록으로">☰</button>
-    </div>
+    </FloatNav>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 // TRPG 로그 상세의 떠 있는 이동 버튼 — 맨 위로 · 이전 로그 · 다음 로그 · 목록
 // 새 파일로 따로 둔 이유: 원작 저장소가 업데이트돼도 충돌하지 않게.
+import { FloatNav } from '@/components/ui/FloatNav';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -44,7 +45,7 @@ export function LogNav({ logs, cur, listHref, extra }: { logs: TrpgLog[]; cur: T
   const off = (on: boolean): React.CSSProperties => (on ? {} : { opacity: .35, cursor: 'default' });
 
   return (
-    <div style={{ position: 'fixed', right: 22, bottom: 92, display: 'grid', gap: 8, zIndex: 30 }}>
+    <FloatNav style={{ right: 22, bottom: 92 }}>
       {extra}
       {scrolled && <button type="button" style={btn} onClick={top} title="맨 위로" aria-label="맨 위로">↑</button>}
       <button type="button" style={{ ...btn, ...off(!!prev) }} disabled={!prev} title={prev ? `이전 로그 · ${prev.title}` : '이전 로그 없음'}
@@ -52,6 +53,6 @@ export function LogNav({ logs, cur, listHref, extra }: { logs: TrpgLog[]; cur: T
       <button type="button" style={{ ...btn, ...off(!!next) }} disabled={!next} title={next ? `다음 로그 · ${next.title}` : '다음 로그 없음'}
         aria-label="다음 로그" onClick={() => next && router.push(`/trpg/${next.id}`)}>›</button>
       <button type="button" style={{ ...btn, fontSize: 13 }} onClick={() => router.push(listHref)} title="목록으로" aria-label="목록으로">☰</button>
-    </div>
+    </FloatNav>
   );
 }
