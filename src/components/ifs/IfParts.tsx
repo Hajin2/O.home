@@ -1,5 +1,6 @@
 'use client';
 // IF 썰 (포크) — IF 페이지와 자관 페이지가 같이 쓰는 조각: 얼굴 · 캐릭터 고르기 · 역극형 반응 한 줄
+import { inkOn } from '@/lib/readable';
 import React, { useMemo, useState } from 'react';
 import type { Character } from '@/lib/charStore';
 import { splitAction, nameColor } from '@/lib/ifStore';
@@ -16,7 +17,7 @@ export function Face({ ch, name, size = 38 }: { ch?: Character; name: string; si
   if (ch?.thumbId) return <div style={box}><CroppedBlobImg fileRef={ch.thumbId} crop={ch.thumbCrop} /></div>;
   const label = ch?.name || name;
   return (
-    <div style={{ ...box, background: ch?.color || nameColor(label), color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: size * .4 }}>
+    <div style={{ ...box, background: ch?.color || nameColor(label), color: inkOn(ch?.color || nameColor(label)), display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: size * .4 }}>
       {label.slice(0, 1)}
     </div>
   );

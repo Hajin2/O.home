@@ -1,5 +1,6 @@
 'use client';
 // TALK (포크) — 여러 화면이 같이 쓰는 조각: 데이터 묶음 · 프로필 · 말풍선 화면 · 크게 보기 · 댓글 · 대화방 설정
+import { inkOn } from '@/lib/readable';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -76,7 +77,7 @@ export function TalkAvatar({ m, ch, size = 36 }: { m?: TalkMember; ch?: Characte
   }
   if (ch?.thumbId) return <span style={box}><CroppedBlobImg fileRef={ch.thumbId} crop={ch.thumbCrop} /></span>;
   return (
-    <span style={{ ...box, background: ch?.color || nameColor(label), color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: size * .42 }}>
+    <span style={{ ...box, background: ch?.color || nameColor(label), color: inkOn(ch?.color || nameColor(label)), display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: size * .42 }}>
       {[...label][0]}
     </span>
   );
