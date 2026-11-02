@@ -32,3 +32,9 @@ export function isPale(color?: string): boolean {
   const c = toRgba(color);
   return lum(c.r, c.g, c.b) > 0.55;
 }
+
+/** 이름 형광펜 색 — 캐릭터 색 그대로, 반투명 (연한 색 50% · 진한 색 28% — 진하게 칠하면 이름 글자가 가려진다) */
+export function highlight(color?: string, fallback = '#5d636d'): string {
+  const c = toRgba(color || fallback);
+  return `rgba(${c.r},${c.g},${c.b},${lum(c.r, c.g, c.b) > 0.3 ? 0.5 : 0.28})`;
+}

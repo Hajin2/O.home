@@ -38,8 +38,8 @@ import { PageTitle } from '@/components/ui/PageText';
 import { RelIfPanel } from '@/components/ifs/RelIfPanel';   // IF 썰 (포크)
 import { RelStoryPanel } from '@/components/story/StoryPanels';   // STORY (포크)
 import { RelTalkPanel } from '@/components/talk/TalkParts';       // TALK (포크)
-import { SayStyle, SayLine } from '@/components/rels/SayBar';     // 말풍선 띠 (포크)
-import { isPale } from '@/lib/readable';
+import { SayStyle, SayName } from '@/components/rels/SayBar';     // 이름 형광펜 (포크)
+import { isPale, highlight } from '@/lib/readable';
 
 /** 타임라인·문답 탭 줄 버튼 (포크) — 흰 버튼은 테두리(1.5px)가 높이에 더해져 검은 버튼보다 3px 커서
  *  한 줄에 놓으면 들쭉날쭉했다. 테두리를 높이 안에 넣어 모두 35px로 맞춘다 */
@@ -1206,14 +1206,13 @@ export default function RelDetailPage() {
                 {item.desc && <div className="desc">{item.desc}</div>}
                 {item.says.map((s, j) => {
                   const c = charOf(s.charId);
-                  // 말풍선 띠 (포크) — 같은 캐릭터가 이어 말하면 이름 한 번 · 띠 이어짐
-                  const cont = item.says[j + 1]?.charId === s.charId;
+                  // 이름 형광펜 (포크) — 같은 캐릭터가 이어 말하면 이름 한 번
                   const first = item.says[j - 1]?.charId !== s.charId;
                   return (
-                    <div key={j} className={`tl-say ${sideOf(s.charId)}${cont ? ' cont' : ''}${isPale(c?.color) ? ' pale' : ''}`}
-                      style={{ ['--cc' as string]: rgbTriple(c?.color ?? '#5d636d'), ['--bar' as string]: c?.color ?? '#5d636d' }}>
-                      {first && <div className="who" style={{ fontFamily: familyOf(c?.fontId) }}>{c?.name}</div>}
-                      <SayLine><div className="bub">{s.text}</div></SayLine>
+                    <div key={j} className={`tl-say ${sideOf(s.charId)}${isPale(c?.color) ? ' pale' : ''}`}
+                      style={{ ['--cc' as string]: rgbTriple(c?.color ?? '#5d636d'), ['--hl' as string]: highlight(c?.color) }}>
+                      {first && <div className="who" style={{ fontFamily: familyOf(c?.fontId) }}><SayName>{c?.name}</SayName></div>}
+                      <div className="bub">{s.text}</div>
                     </div>
                   );
                 })}
@@ -1246,8 +1245,8 @@ export default function RelDetailPage() {
                   {!qaHidden && curAnswers.map((a, i) => {
                     const c = charOf(a.charId);
                     return (
-                      <div key={i} className={`qa-ans ${sideOf(a.charId) === 'r' ? 'r' : ''}${curAnswers[i + 1]?.charId === a.charId ? ' cont' : ''}${isPale(c?.color) ? ' pale' : ''}`}
-                        style={{ ['--cc' as string]: rgbTriple(c?.color ?? '#5d636d'), ['--bar' as string]: c?.color ?? '#5d636d' }}
+                      <div key={i} className={`qa-ans ${sideOf(a.charId) === 'r' ? 'r' : ''}${isPale(c?.color) ? ' pale' : ''}`}
+                        style={{ ['--cc' as string]: rgbTriple(c?.color ?? '#5d636d'), ['--hl' as string]: highlight(c?.color) }}
                         /* 수정·부연·삭제는 우클릭 메뉴로 — 늘 떠 있으면 답변 줄이 난잡해진다 (사용자 확정) */
                         onContextMenu={e => {
                           if (!(canEditAns(a) || isAdmin || canDelAns(a))) return;
@@ -1256,9 +1255,9 @@ export default function RelDetailPage() {
                         }}>
                         {/* 같은 캐릭터가 연달아 답하면 이름을 한 번만 (v2.0 사용자 요청) */}
                         {curAnswers[i - 1]?.charId !== a.charId && (
-                          <div className="who" style={{ fontFamily: familyOf(c?.fontId) }}>{c?.name}</div>
+                          <div className="who" style={{ fontFamily: familyOf(c?.fontId) }}><SayName>{c?.name}</SayName></div>
                         )}
-                        <SayLine><div className="bub" {...(a.note ? { 'data-note': a.note } : {})}>{a.text}</div></SayLine>
+                        <div className="bub" {...(a.note ? { 'data-note': a.note } : {})}>{a.text}</div>
                       </div>
                     );
                   })}
