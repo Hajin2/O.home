@@ -8,6 +8,8 @@
 //     그 자관에 질문이 아직 없으면: 자관을 고칠 수 있는 사람은 질문까지 추가, 아니면 IF 반응으로 저장
 //     (IF 반응으로 저장한 것도 이 화면의 그 자관 묶음 안, 자관 페이지의 「IF 썰」 칸에 보인다)
 // 회원 누구나 질문·반응 작성 · 자기 글은 자기가 수정/삭제 (관리자는 전부)
+// 자관에 질문만 걸기 (포크): 카드의 「＋ 자관에 질문 걸기」, 또는 반응 달기에서 자관만 고르고 반응을 비우면
+//   답 없이 질문만 그 자관 QUESTIONS에 추가 → 카드에 「답변 기다리는 자관」으로 뜬다
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useLocalList, newId } from '@/lib/postStore';
@@ -289,6 +291,49 @@ export default function IfPage() {
   const mapOf = (name: string, group?: string) => (name in rMap
     ? rMap[name] : guessChar(name, sortedChars, membersOf(group ? relByName.get(group)?.id : undefined)));
 
+  /** 자관에 질문만 걸기 (포크) — 답 없이 질문만 그 자관 QUESTIONS에 추가 → 카드에 「답변 기다리는 자관」으로 뜬다.
+   *  이미 그 질문이 있는 자관은 건너뛰고, 고칠 권한이 없는 자관도 건너뛴다. 결과 개수를 돌려준다 */
+  const hangQuestion = (card: Card, relIds: string[]) => {
+    const today = new Date().toISOString().slice(0, 10);
+    let added = 0, had = 0, denied = 0;
+    const want = new Set<string>();
+    relIds.forEach(id => {
+      const rel = rels.find(r => r.id === id);
+      if (!rel) return;
+      if (card.refs.some(r => r.rel.id === id)) { had += 1; return; }
+      if (!canEditRel(rel, chars, user?.id, isAdmin)) { denied += 1; return; }
+      want.add(id);
+    });
+    if (want.size) {
+      const next = rels.map(r => {
+        if (!want.has(r.id)) return r;
+        const no = Math.max(0, ...(r.questions ?? []).map(x => x.no)) + 1;
+        added += 1;
+        return { ...r, questions: [{ no, q: card.title, date: today, answers: [] }, ...(r.questions ?? [])], qaEnabled: true };
+      });
+      setRels(stampRelEditors(next, rels, chars));
+      setOpen(s => new Set(s).add(card.id));
+    }
+    return { added, had, denied };
+  };
+  const hangToast = (r: { added: number; had: number; denied: number }) => {
+    const parts = [];
+    if (r.added) parts.push(`자관 ${r.added}곳에 질문을 걸었어요 — 답변 기다리는 자관으로 떠요`);
+    if (r.had) parts.push(`${r.had}곳은 이미 걸려 있어요`);
+    if (r.denied) parts.push(`${r.denied}곳은 편집 권한이 없어 못 걸었어요`);
+    toast(parts.join(' · ') || '걸 자관을 골라 주세요');
+  };
+
+  /* ---------- 자관에 질문 걸기 창 (포크) ---------- */
+  const [hCard, setHCard] = useState<Card | null>(null);
+  const [hSel, setHSel] = useState<string[]>([]);
+  const saveHang = () => {
+    if (!hCard) return;
+    if (!hSel.length) { toast('걸 자관을 골라 주세요'); return; }
+    hangToast(hangQuestion(hCard, hSel));
+    setHCard(null);
+  };
+
   /** 반응 저장 — 자관 묶음이면 자관 문답으로, 아니면 IF 반응으로. 저장 위치별 개수를 돌려준다 */
   const commit = (card: Card, rows: Row[]) => {
     const now = new Date().toISOString();
@@ -367,6 +412,8 @@ export default function IfPage() {
       if (!bulkRows.length) { toast('「이름: 반응」 형식의 줄을 찾지 못했어요'); return; }
       rows = bulkRows.map(r => { const cid = mapOf(r.name, r.group) || undefined; return { ...r, name: charOf(cid)?.name ?? r.name, charId: cid, relId: r.group ? relByName.get(r.group)?.id : undefined }; });
     } else {
+      // 자관만 고르고 반응을 비우면 — 그 자관에 질문만 걸기 (답변 기다리는 자관, 포크)
+      if (rRel && !rText.trim()) { hangToast(hangQuestion(rCard, [rRel])); setRCard(null); return; }
       const ch = sortedChars.find(c => c.id === rChar);
       const name = ch?.name || rName.trim();
       if (!name) { toast('캐릭터를 고르거나 이름을 입력해 주세요'); return; }
@@ -492,6 +539,7 @@ export default function IfPage() {
                   {groups.every(g => g.items.length === 0 && !g.locked) && <p className="hint" style={{ marginTop: 12 }}>아직 반응이 없어요</p>}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, alignItems: 'center' }}>
                     {canWrite && <button className="btn btn-ghost" onClick={() => openAdd(c)}>＋ 반응 달기</button>}
+                    {canWrite && <button className="btn btn-ghost" onClick={() => { setHCard(c); setHSel([]); }}>＋ 자관에 질문 걸기</button>}
                     <button className="btn btn-ghost" onClick={() => collapse(c.id)}>▲ 접기</button>
                     <span style={{ marginLeft: 'auto', display: 'flex', gap: 10, fontSize: 12, color: FAINT }}>
                       {c.post && mine(c.post.authorId) && <span className="fx" style={{ cursor: 'pointer' }} onClick={() => openEditPost(c.post!)}>질문 수정</span>}
@@ -529,6 +577,36 @@ export default function IfPage() {
         </div>
       </Modal>
 
+      {/* 자관에 질문 걸기 (포크) — 답 없이 질문만. 이미 걸린 자관·권한 없는 자관은 고를 수 없게 */}
+      <Modal open={hCard !== null} onClose={() => setHCard(null)} small title="자관에 질문 걸기"
+        actions={<>
+          <button className="btn btn-ghost" onClick={() => setHCard(null)}>CANCEL</button>
+          <button className="btn btn-dark" onClick={saveHang}>{hSel.length ? `걸기 ${hSel.length}` : '걸기'}</button>
+        </>}>
+        {hCard && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            <p className="hint" style={{ margin: 0 }}>《{hCard.title}》를 고른 자관의 QUESTIONS 탭에 추가해요. 답이 달릴 때까지 카드에 「답변 기다리는 자관」으로 떠요.</p>
+            <div style={{ display: 'grid', gap: 4, maxHeight: 320, overflowY: 'auto' }}>
+              {rels.filter(r => r.name?.trim()).map(r => {
+                const had = hCard.refs.some(x => x.rel.id === r.id);
+                const can = canEditRel(r, chars, user?.id, isAdmin);
+                const on = hSel.includes(r.id);
+                return (
+                  <label key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 8, border: `1px solid ${LINE}`,
+                    opacity: had || !can ? 0.5 : 1, cursor: had || !can ? 'default' : 'pointer' }}>
+                    <input type="checkbox" checked={had || on} disabled={had || !can}
+                      onChange={() => setHSel(on ? hSel.filter(x => x !== r.id) : [...hSel, r.id])} />
+                    <span style={{ flex: 1, minWidth: 0 }}>#{r.name}</span>
+                    {had && <span style={{ fontSize: 11, color: FAINT }}>이미 걸림</span>}
+                    {!had && !can && <span style={{ fontSize: 11, color: FAINT }}>편집 권한 없음</span>}
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* 반응 달기/수정 */}
       <Modal open={rCard !== null} onClose={() => setRCard(null)} title={rEdit ? '반응 수정' : '반응 달기'} dirty
         actions={<>
@@ -562,7 +640,7 @@ export default function IfPage() {
                       <KInput placeholder="이름" value={rName} onChange={e => setRName(e.target.value)} />
                     </>
                   )}
-                  <label style={{ fontSize: 12, color: FAINT }}>반응 — (괄호)는 지문으로 보여요</label>
+                  <label style={{ fontSize: 12, color: FAINT }}>반응 — (괄호)는 지문으로 보여요{rRel && !rEdit ? ' · 비워 두면 이 자관에 질문만 걸려요 (답변 기다리는 자관)' : ''}</label>
                   <KTextarea rows={3} placeholder="ㅎㅎ (재현이 번호 줌)" value={rText} onChange={e => setRText(e.target.value)} />
                 </>
               ) : (
