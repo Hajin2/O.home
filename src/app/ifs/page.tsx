@@ -527,10 +527,9 @@ export default function IfPage() {
                         <span>답변 기다리는 자관</span>
                         {waiting.map(g => (
                           <span key={g.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 4px 2px 10px', borderRadius: 999, border: `1px solid ${LINE}` }}>
-                            {/* 누르면 그 자관으로 바로 반응 달기 (자관 페이지로 넘어가지 않게 — 사용자 요청). 자관 페이지는 옆 ↗ */}
+                            {/* 누르면 그 자관으로 바로 반응 달기 (자관 페이지로 넘어가지 않게 — 사용자 요청. 자관 페이지 링크는 안 씀) */}
                             <span className="fx" data-tip={canWrite ? '이 자관으로 반응 달기' : undefined} style={{ cursor: canWrite ? 'pointer' : 'default', color: 'inherit' }}
                               onClick={() => { if (!canWrite) return; openAdd(c); setRRel(g.rel!.id); }}>#{g.label}</span>
-                            <a href={`/rels/${g.rel!.slug || g.rel!.id}`} data-tip="자관 페이지로" style={{ color: 'inherit', fontSize: 11, padding: '0 2px' }}>↗</a>
                             {canEditRel(g.rel!, chars, user?.id, isAdmin)
                               ? <span className="fx" data-tip="이 자관에서 질문 빼기" style={{ cursor: 'pointer', padding: '0 4px' }} onClick={() => removeRelGroup(c, g)}>✕</span>
                               : <span style={{ width: 4 }} />}
