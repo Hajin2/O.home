@@ -519,8 +519,13 @@ export default function IfPage() {
                     </div>
                   ))}
                   {(() => {
-                    // 답변 없는 자관 — 큰 칸 대신 한 줄로 (자관 QUESTIONS에는 질문이 있지만 아직 아무도 답 안 함)
-                    const waiting = groups.filter(g => g.refs && !g.locked && g.items.length === 0);
+                    // 답변 기다리는 자관 — ① 아직 아무도 답 안 한 자관(큰 칸 대신 한 줄)
+                    //   ② 몇 명만 답한 자관도 남은 캐릭터가 있으면 계속 여기 남긴다 (포크, 사용자 건의 — 4인관 중 한 명만 쓰고 나머지 확인용)
+                    const pendingOf = (g: Group) => g.rel
+                      ? g.rel.members.map(m => m.charId).filter(id => !!charOf(id) && !g.items.some(it => it.charId === id))
+                      : [];
+                    const waiting = groups.filter(g => g.rel && !g.locked
+                      && ((g.refs && g.items.length === 0) || (g.items.length > 0 && pendingOf(g).length > 0)));
                     if (!waiting.length) return null;
                     return (
                       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 12, fontSize: 12, color: FAINT }}>
@@ -530,7 +535,19 @@ export default function IfPage() {
                             {/* 누르면 그 자관으로 바로 반응 달기 (자관 페이지로 넘어가지 않게 — 사용자 요청. 자관 페이지 링크는 안 씀) */}
                             <span className="fx" data-tip={canWrite ? '이 자관으로 반응 달기' : undefined} style={{ cursor: canWrite ? 'pointer' : 'default', color: 'inherit' }}
                               onClick={() => { if (!canWrite) return; openAdd(c); setRRel(g.rel!.id); }}>#{g.label}</span>
-                            {canEditRel(g.rel!, chars, user?.id, isAdmin)
+                            {/* 몇 명만 답했으면 — 아직 안 단 캐릭터 이름. 누르면 그 캐릭터로 바로 반응 달기 */}
+                            {g.items.length > 0 && (() => {
+                              const left = pendingOf(g);
+                              return <>
+                                <span style={{ opacity: .7 }}>{g.rel!.members.length - left.length}/{g.rel!.members.length}</span>
+                                {left.map(id => (
+                                  <span key={id} className="fx" data-tip={canWrite ? '이 캐릭터로 반응 달기' : undefined}
+                                    style={{ cursor: canWrite ? 'pointer' : 'default', padding: '0 7px', borderRadius: 999, background: 'color-mix(in srgb, var(--ink, #1d2025) 6%, transparent)', color: 'var(--ink, #1d2025)' }}
+                                    onClick={() => { if (!canWrite) return; openAdd(c); setRRel(g.rel!.id); setRChar(id); }}>{charOf(id)?.name}</span>
+                                ))}
+                              </>;
+                            })()}
+                            {g.items.length === 0 && canEditRel(g.rel!, chars, user?.id, isAdmin)
                               ? <span className="fx" data-tip="이 자관에서 질문 빼기" style={{ cursor: 'pointer', padding: '0 4px' }} onClick={() => removeRelGroup(c, g)}>✕</span>
                               : <span style={{ width: 4 }} />}
                           </span>
