@@ -627,12 +627,18 @@ export default function IfPage() {
       </Modal>
 
       {/* 반응 달기/수정 */}
-      <Modal open={rCard !== null} onClose={() => setRCard(null)} title={rEdit ? '반응 수정' : '반응 달기'} dirty
+      <Modal open={rCard !== null} onClose={() => setRCard(null)} dirty
         actions={<>
           <button className="btn btn-ghost" onClick={() => setRCard(null)}>CANCEL</button>
           <button className="btn btn-dark" onClick={saveReact}>{rEdit ? 'SAVE' : rMode === 'many' && bulkRows.length ? `ADD ${bulkRows.length}` : 'ADD'}</button>
         </>}>
         <div style={{ display: 'grid', gap: 10 }}>
+          {/* 창 제목 = IF 질문 (포크, 사용자 확정 C안 — 남은 캐릭터 눌러 바로 열면 무슨 질문인지 안 보였다).
+              「반응 달기 · IF」는 작은 회색 글씨로 내리고 질문을 크게 */}
+          <div style={{ paddingBottom: 12, borderBottom: `1px solid ${LINE}` }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.14em', color: FAINT }}>{rEdit ? '반응 수정' : '반응 달기'} · IF</div>
+            <div style={{ marginTop: 4, fontSize: 19, fontWeight: 800, lineHeight: 1.45, letterSpacing: '-.01em', wordBreak: 'keep-all', overflowWrap: 'anywhere' }}>{rCard?.title}</div>
+          </div>
           {rEdit?.qaRowId ? (
             <>
               <p className="hint" style={{ margin: 0 }}>자관 문답에 저장된 답변이에요 — 고치면 자관 페이지에도 반영돼요.</p>
