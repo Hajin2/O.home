@@ -33,6 +33,14 @@ export interface ThreadWork {
   visibility: Visibility;
   created: string;           // 타래 시작 ISO
   posts: ThreadPost[];
+  /** 타래를 연 회원 (포크, 사용자 요청 — 가입자 누구나 타래를 열 수 있게).
+   *  수정·삭제·이어쓰기는 이 사람과 관리자만. 예전 타래(값 없음)는 관리자 것으로 본다 */
+  authorId?: string;
+  authorNick?: string;       // 연 사람 닉네임 (표시용)
+  /** 장르 태그 (포크, 사용자 요청) — 환경설정 장르 리스트의 id, 여러 개 */
+  genres?: string[];
+  /** 별점 0.5~5 (0.5 단위, 포크 사용자 요청) — 없으면 별점 표시 안 함 */
+  rating?: number;
 }
 
 /* ---------- 분류 + 기본 보기 설정 (4.17 — 환경설정에서 관리) ---------- */
@@ -50,7 +58,25 @@ export interface ThreadSettings {
    *  글부터 못 쓴다. 손대는 순간 그 섹션만의 목록이 생긴다. */
   secCats?: Record<string, ThreadCat[]>;
   defaultView: 'thread' | 'list'; // 메뉴 진입 시 먼저 보일 보기 (v1.8 확정)
+  /** 장르 리스트 (포크, 사용자 요청) — 모든 감상타래 공통. 분류(도서·영화…)와 따로, 여러 개 고른다 */
+  genres: ThreadGenre[];
 }
+export interface ThreadGenre { id: string; label: string }
+
+export const DEFAULT_GENRES: ThreadGenre[] = [
+  { id: 'romance', label: '로맨스' },
+  { id: 'mystery', label: '미스터리' },
+  { id: 'action', label: '액션' },
+  { id: 'thriller', label: '스릴러' },
+  { id: 'horror', label: '공포' },
+  { id: 'fantasy', label: '판타지' },
+  { id: 'sf', label: 'SF' },
+  { id: 'comedy', label: '코미디' },
+];
+
+/** 고른 장르 이름들 — 리스트에서 지운 장르는 빼고 보여 준다 */
+export const genreLabels = (all: ThreadGenre[], ids?: string[]) =>
+  (ids ?? []).map(id => all.find(g => g.id === id)?.label).filter(Boolean) as string[];
 
 /** 그 섹션에서 쓸 분류 (v2.0) — 따로 정한 적이 없으면 기본 섹션 것 */
 export const threadCats = (s: ThreadSettings, secId: string): ThreadCat[] =>
@@ -73,6 +99,7 @@ export const DEFAULT_THREAD_SETTINGS: ThreadSettings = {
     { id: 'webnovel', label: '웹소' },
   ],
   defaultView: 'thread',
+  genres: DEFAULT_GENRES,
 };
 
 const SET_KEY = 'ohome.threadset.v1';

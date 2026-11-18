@@ -2797,6 +2797,37 @@ function ThreadPane() {
           ＋ ADD
         </button>
       </div>
+
+      {/* 장르 리스트 (포크, 사용자 요청) — 타래를 열 때 여러 개 고르는 태그. 모든 감상타래 공통 */}
+      <h3 style={{ marginTop: 26 }}>장르 리스트</h3>
+      <div className="d">타래를 열 때 고르는 장르 태그 (여러 개 선택) · ⠿ 드래그로 순서 · 추가/삭제</div>
+      <DragList items={settings.genres} keyOf={g => g.id} onReorder={next => patch({ genres: next })}
+        render={g => (
+          <div className="set-row" style={{ width: '100%' }}>
+            <div className="l" style={{ display: 'flex', gap: 11, alignItems: 'center' }}>
+              <span className="drag-h">⠿</span>
+              <span className="thr-genres"><span>{g.label || '장르'}</span></span>
+            </div>
+            <div className="cp-group" style={{ justifyContent: 'flex-end' }}>
+              <KInput value={g.label}
+                onChange={e => patch({ genres: settings.genres.map(x => (x.id === g.id ? { ...x, label: e.target.value } : x)) })}
+                style={{ width: 120, textAlign: 'right' }} />
+              <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 10.5 }}
+                onClick={() => {
+                  const used = works.filter(w => (w.genres ?? []).includes(g.id)).length;
+                  del.ask(`장르 「${g.label}」를 삭제하시겠습니까?`,
+                    () => patch({ genres: settings.genres.filter(x => x.id !== g.id) }),
+                    used > 0 ? `이 장르를 단 타래 ${used}개에서는 태그가 보이지 않게 됩니다.` : undefined);
+                }}>DELETE</button>
+            </div>
+          </div>
+        )} />
+      <div style={{ marginTop: 10, display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn btn-ghost" style={{ padding: '5px 12px', fontSize: 11 }}
+          onClick={() => patch({ genres: [...settings.genres, { id: newId(), label: '새 장르' }] })}>
+          ＋ ADD
+        </button>
+      </div>
       {del.element}
     </div>
   );

@@ -7,14 +7,15 @@ import { PageTitle, EditableDesc } from '@/components/ui/PageText';
 import { ThreadForm } from '@/components/threads/ThreadForm';
 
 function ThreadNewInner() {
-  const { isAdmin } = useAuth();
+  const { user } = useAuth();
   // 큰 글씨 — 추가 섹션에서 들어왔으면(?s=) 그 이름, 눌렀을 때도 그 목록으로 (v2.0 사용자 제보)
   const sec = useSectionParam('threads');
   const tt = useSectionTitle('threads', sec.id, 'THREADS');
-  if (!isAdmin) {
+  // 가입자 누구나 타래를 연다 (포크, 사용자 요청)
+  if (!user) {
     return (
       <section className="page">
-        <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>관리자 전용 페이지</p></div>
+        <div className="page-head"><PageTitle href={tt.href}>{tt.title}</PageTitle><p>로그인한 회원만 타래를 열 수 있습니다</p></div>
       </section>
     );
   }

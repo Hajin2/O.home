@@ -10,12 +10,15 @@ import { putBlob, useBlobUrl } from '@/lib/blobStore';
 import { CropEditor, CropImg, CropValue } from '@/components/ui/CropEditor';
 import { KInput, KSelect, KLabel } from '@/components/ui/Kit';
 import { useToast } from '@/components/ui/Toast';
+import { useAuth } from '@/lib/auth';
+import { StarPicker } from './Stars';
 
 const PHS = ['cool', 'warm', 'pale', 'red'];
 
 export function ThreadForm({ editId }: { editId?: string }) {
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
   const [works, setWorks, loaded] = useLocalList<ThreadWork>('ohome.threads.v1', THREAD_SEED);
   // 어느 감상타래에서 눌러 왔는지 (v2.0)
   const sec = useSectionParam('threads');
@@ -41,6 +44,10 @@ export function ThreadForm({ editId }: { editId?: string }) {
     if (!orig && cats.length > 0 && !cats.some(c => c.id === catId)) setCatId(cats[0].id);
   }, [cats, orig, catId]);
   const [vis, setVis] = useState<ThreadWork['visibility']>(orig?.visibility ?? 'public');
+  // 장르 태그 · 별점 (포크, 사용자 요청)
+  const [genres, setGenres] = useState<string[]>(orig?.genres ?? []);
+  const [rating, setRating] = useState<number | undefined>(orig?.rating);
+  const toggleGenre = (id: string) => setGenres(g => (g.includes(id) ? g.filter(x => x !== id) : [...g, id]));
   // 포스터 (3:4) — 업로드 즉시 크롭 에디터 자동 오픈, 원본 무손실
   const [poster, setPoster] = useState<File | null>(null);
   const [posterUrl, setPosterUrl] = useState('');
@@ -61,6 +68,7 @@ export function ThreadForm({ editId }: { editId?: string }) {
     setTitle(o.title); setFontId(o.titleFontId ?? 'default');
     setAuthor(o.author); setRole(o.authorRole ?? '');
     setCatId(o.catId); setVis(o.visibility);
+    setGenres(o.genres ?? []); setRating(o.rating);
     setCrop(o.posterCrop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editId, loaded, works]);
@@ -74,6 +82,7 @@ export function ThreadForm({ editId }: { editId?: string }) {
         title: title.trim(), titleFontId: fontId === 'default' ? undefined : fontId,
         author: author.trim(), authorRole: role.trim() || undefined,
         catId, visibility: vis, posterId, posterCrop: crop,
+        genres: genres.length ? genres : undefined, rating,
       } : w));
       toast('저장되었습니다');
     } else {
@@ -82,10 +91,16 @@ export function ThreadForm({ editId }: { editId?: string }) {
         title: title.trim(), titleFontId: fontId === 'default' ? undefined : fontId,
         author: author.trim(), authorRole: role.trim() || undefined,
         catId, visibility: vis, posterId, posterCrop: crop,
+        genres: genres.length ? genres : undefined, rating,
+        // 연 사람 (포크 — 가입자 누구나 타래를 연다)
+        authorId: user?.id, authorNick: user?.nickname,
         ph: PHS[works.length % PHS.length],
         created: new Date().toISOString(), posts: [],
       };
-      setWorks([{ ...w, ...secStamp(sec.id) }, ...works]);
+      /* **맨 뒤에 붙인다** (포크) — 화면은 최근 글 순으로 따로 정렬하므로 저장 순서는 상관없다.
+         맨 앞에 넣으면 남의 타래 전부의 순서값이 바뀌어 저장되는데, 일반 회원은 남의 문서를
+         고칠 수 없어 저장이 거부된다 */
+      setWorks([...works, { ...w, ...secStamp(sec.id) }]);
       toast('타래가 시작되었습니다');
     }
     router.push('/threads' + secQuery('threads', secId));
@@ -133,6 +148,23 @@ export function ThreadForm({ editId }: { editId?: string }) {
                   { value: 'private', label: '나만보기' },
                 ]} />
             </div>
+          </div>
+          {/* 장르 태그 — 여러 개 (포크, 사용자 요청) · 리스트는 환경설정 › 감상타래 */}
+          {settings.genres.length > 0 && (
+            <div>
+              <KLabel>Genre</KLabel>
+              <div className="thr-genre-pick">
+                {settings.genres.map(g => (
+                  <button key={g.id} type="button" className={genres.includes(g.id) ? 'on' : ''}
+                    onClick={() => toggleGenre(g.id)}>{g.label}</button>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* 별점 — 0.5 단위, 같은 점수를 다시 누르면 지운다 (포크, 사용자 요청) */}
+          <div>
+            <KLabel>Rating</KLabel>
+            <StarPicker value={rating} onChange={setRating} />
           </div>
           <div>
             <KLabel>Poster</KLabel>

@@ -12,7 +12,9 @@ import {
 } from '@/lib/postStore';
 import {
   ThreadWork, ThreadPost, THREAD_SEED, useThreadSettings, threadCats, catLabel, threadBadgeStyle, lastDate, fmtMD, fmtMDHM,
+  genreLabels,
 } from '@/lib/threadStore';
+import { Stars } from '@/components/threads/Stars';
 import { useFonts } from '@/lib/fontStore';
 import { putBlob, BlobImg, useBlobUrl } from '@/lib/blobStore';
 import { CroppedBlobImg } from '@/components/ui/CropEditor';
@@ -91,6 +93,10 @@ function ThreadsPageInner() {
   const [lb, setLb] = useState<{ srcs: string[]; idx: number } | null>(null); // 이미지 확대 보기
   const [viewInit, setViewInit] = useState(false);
   const [cat, setCat] = useState('all');
+  const [genre, setGenre] = useState('all');   // 장르 필터 (포크, 사용자 요청)
+  /** 이 타래를 고칠 수 있는지 — 연 사람과 관리자 (포크 — 가입자 누구나 타래를 열게 되면서).
+   *  연 사람 기록이 없는 예전 타래는 관리자 것 */
+  const canEdit = (w?: ThreadWork) => !!w && (isAdmin || (!!user && !!w.authorId && w.authorId === user.id));
   const [q, setQ] = useState('');
   const [selId, setSelId] = useState<string | null>(null);
 
@@ -101,10 +107,12 @@ function ThreadsPageInner() {
 
   // 공개범위 → 분류 필터 → 검색, 최근 글 순
   const visible = useMemo(() => works
-    .filter(w => isAdmin || w.visibility === 'public' || (w.visibility === 'member' && user))
+    .filter(w => isAdmin || w.visibility === 'public' || (w.visibility === 'member' && user)
+      || (!!user && w.authorId === user.id))   // 내가 연 나만보기 타래
     .filter(w => cat === 'all' || w.catId === cat)
+    .filter(w => genre === 'all' || (w.genres ?? []).includes(genre))
     .filter(w => !q || w.title.includes(q))
-    .sort((a, b) => lastDate(b).localeCompare(lastDate(a))), [works, isAdmin, user, cat, q]);
+    .sort((a, b) => lastDate(b).localeCompare(lastDate(a))), [works, isAdmin, user, cat, genre, q]);
 
   const sel = visible.find(w => w.id === selId) ?? visible[0];
 
@@ -211,7 +219,8 @@ function ThreadsPageInner() {
     del.ask(`「${w.title}」 타래를 삭제하시겠습니까?`, () => {
       setWorks(works.filter(x => x.id !== w.id));
       // 딸린 댓글도 함께 지운다 — 따로 저장되므로 남겨 두면 주인 없는 줄이 된다 (v2.0)
-      setCmtRows(cmtRows.filter(c => !(c.target === 'thread' && c.targetId === w.id)));
+      // 회원은 남의 댓글을 지울 수 없어(서버 규칙) 자기 댓글만 함께 지운다 — 남은 건 보이지 않는 줄로 남는다
+      setCmtRows(cmtRows.filter(c => !(c.target === 'thread' && c.targetId === w.id && (isAdmin || c.authorId === user?.id))));
       setSelId(null);
     }, `타래의 글 ${w.posts.length}개도 함께 삭제됩니다.`);
   };
@@ -230,11 +239,18 @@ function ThreadsPageInner() {
       ? { ...base, target: 'thread' as const, targetId: sel.id, author: user.nickname, authorId: user.id }
       : { ...base, target: 'thread' as const, targetId: sel.id, author: gName.trim(), authorId: '' };
     setCmtRows([...cmtRows, c]);
-    /* 알림 (v2.0) — 타래는 관리자의 것이라 관리자에게, 답글이면 그 댓글 주인에게도 */
+    /* 알림 (v2.0) — 관리자에게, 답글이면 그 댓글 주인에게도.
+       회원이 연 타래면 연 사람에게도 (포크 — 가입자 누구나 타래를 열게 되면서) */
     notifyAdmins({
       type: 'comment', href: sectionHref('threads', sel.secId ?? 'main'),
       title: `「${sel.title}」 타래에 새 댓글`, body: `${c.author} — ${c.text.slice(0, 50)}`,
     });
+    if (sel.authorId && sel.authorId !== (user?.id ?? '')) {
+      pushNotif({
+        type: 'comment', toUserId: sel.authorId, href: sectionHref('threads', sel.secId ?? 'main'),
+        title: `내 타래 「${sel.title}」에 새 댓글`, body: `${c.author} — ${c.text.slice(0, 50)}`,
+      });
+    }
     if (replyTo) {
       // 뿌리 주인만이 아니라 그 대화에 답글을 단 전원에게 (v2.0 포크 제보 — 게시판과 동일)
       const rootAuthor = comments.find(x => x.id === replyTo)?.authorId;
@@ -281,8 +297,13 @@ function ThreadsPageInner() {
             <button className={view === 'thread' ? 'on' : ''} onClick={() => setView('thread')}>타래</button>
             <button className={view === 'list' ? 'on' : ''} onClick={() => setView('list')}>리스트</button>
           </div>
+          {settings.genres.length > 0 && (
+            <KSelect minWidth={112} value={genre} onChange={setGenre}
+              options={[{ value: 'all', label: '장르 전체' }, ...settings.genres.map(g => ({ value: g.id, label: g.label }))]} />
+          )}
           <SearchBar onSearch={setQ} />
-          {isAdmin && (
+          {/* 가입자 누구나 타래를 연다 (포크, 사용자 요청) */}
+          {user && (
             <button className="btn btn-dark" style={{ whiteSpace: 'nowrap' }}
               onClick={() => router.push('/threads/new' + secQuery('threads', sec.id))}>＋ NEW THREAD</button>
           )}
@@ -291,7 +312,7 @@ function ThreadsPageInner() {
 
       {visible.length === 0 ? (
         <div className="panel" style={{ textAlign: 'center', padding: 48, fontSize: 13, color: 'var(--faint)' }}>
-          {q || cat !== 'all' ? '조건에 맞는 타래가 없습니다' : '타래가 없습니다'}
+          {q || cat !== 'all' || genre !== 'all' ? '조건에 맞는 타래가 없습니다' : '타래가 없습니다'}
         </div>
       ) : view === 'list' ? (
         /* 리스트 보기 — 포스터 카드 그리드 (한 줄 5개, 3:4) */
@@ -300,7 +321,7 @@ function ThreadsPageInner() {
             <div key={w.id} className="panel thr-card"
               onClick={() => { setSelId(w.id); setView('thread'); }}
               /* 우클릭 → 메뉴 → 삭제 확인 모달 (v2.0 사용자 요청) — 리스트 보기에는 삭제 버튼이 없었다 */
-              onContextMenu={e => { if (!isAdmin) return; e.preventDefault(); setWCtx({ x: e.clientX, y: e.clientY, id: w.id }); }}>
+              onContextMenu={e => { if (!canEdit(w)) return; e.preventDefault(); setWCtx({ x: e.clientX, y: e.clientY, id: w.id }); }}>
               <div className="th">
                 <CroppedBlobImg fileRef={w.posterId} crop={w.posterCrop} ph={w.ph} />
                 <span className="pill dark" style={threadBadgeStyle(cats.find(c => c.id === w.catId))}>
@@ -316,8 +337,15 @@ function ThreadsPageInner() {
                     overflow: 'hidden', lineHeight: 1.45,
                   }}>{w.author}{w.authorRole ? ` ${w.authorRole}` : ''}</div>
                 )}
+                {/* 별점 · 장르 (포크, 사용자 요청) */}
+                {w.rating ? <div className="row"><Stars value={w.rating} size={12} /></div> : null}
+                {genreLabels(settings.genres, w.genres).length > 0 && (
+                  <div className="row thr-genres" style={{ margin: '3px 0' }}>
+                    {genreLabels(settings.genres, w.genres).map(g => <span key={g}>{g}</span>)}
+                  </div>
+                )}
                 <div className="row"><b>글</b> {w.posts.length}</div>
-                <div className="row"><b>최근</b> {fmtMD(lastDate(w))}</div>
+                <div className="row"><b>최근</b> {fmtMD(lastDate(w))}{w.authorNick && ` · ${w.authorNick}`}</div>
               </div>
             </div>
           ))}
@@ -338,11 +366,23 @@ function ThreadsPageInner() {
                   <div>
                     <div className="tt" style={{ fontFamily: familyOf(sel.titleFontId) }}>{sel.title}</div>
                     <div className="author">{sel.author}{sel.authorRole && <> <b>{sel.authorRole}</b></>}</div>
+                    {/* 별점 · 장르 (포크, 사용자 요청) */}
+                    {(sel.rating || genreLabels(settings.genres, sel.genres).length > 0) && (
+                      <div className="thr-meta">
+                        <Stars value={sel.rating} size={16} />
+                        {genreLabels(settings.genres, sel.genres).length > 0 && (
+                          <span className="thr-genres">
+                            {genreLabels(settings.genres, sel.genres).map(g => <span key={g}>{g}</span>)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <small>
+                      {sel.authorNick && <>{sel.authorNick} · </>}
                       타래 시작 {fmtMD(sel.created)} · 글 {sel.posts.length}
                       {sel.visibility !== 'public' && ` · ${sel.visibility === 'member' ? '멤버공개' : '나만보기'}`}
                     </small>
-                    {isAdmin && (
+                    {canEdit(sel) && (
                       <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
                         <button className="btn btn-ghost" style={{ padding: '3px 10px', fontSize: 10.5 }}
                           onClick={() => router.push(`/threads/${sel.id}/edit`)}>EDIT</button>
@@ -374,7 +414,7 @@ function ThreadsPageInner() {
                           </>
                         )}
                         <div className="tm">{fmtMDHM(p.date)}</div>
-                        {isAdmin && (
+                        {canEdit(sel) && (
                           <div className="hv-actions">
                             <button onClick={() => openEdit(p)}>EDIT</button>
                             <button className="del" onClick={() => removePost(p.id)}>DELETE</button>
@@ -387,8 +427,8 @@ function ThreadsPageInner() {
                     <p style={{ fontSize: 12.5, color: 'var(--faint)', paddingBottom: 18 }}>아직 글이 없습니다</p>
                   )}
                 </div>
-                {/* 이어쓰기 컴포저 (트위터식, 관리자) */}
-                {isAdmin && (
+                {/* 이어쓰기 컴포저 (트위터식) — 타래를 연 사람과 관리자 */}
+                {canEdit(sel) && (
                   <div className="thr-write">
                     <textarea placeholder="타래 이어쓰기…" value={text} onChange={e => setText(e.target.value)} />
                     {urls.length > 0 && (
@@ -465,13 +505,13 @@ function ThreadsPageInner() {
             {visible.map(w => (
               <div key={w.id} className={`thr-item ${sel?.id === w.id ? 'on' : ''}`} onClick={() => setSelId(w.id)}
                 /* 우클릭 → 메뉴 → 삭제 확인 모달 (v2.0 사용자 요청) — 타래 보기의 오른쪽 카드에서도 */
-                onContextMenu={e => { if (!isAdmin) return; e.preventDefault(); setWCtx({ x: e.clientX, y: e.clientY, id: w.id }); }}>
+                onContextMenu={e => { if (!canEdit(w)) return; e.preventDefault(); setWCtx({ x: e.clientX, y: e.clientY, id: w.id }); }}>
                 <div className="th">
                   <CroppedBlobImg fileRef={w.posterId} crop={w.posterCrop} ph={w.ph} />
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <b>{w.title}</b>
-                  <small>{catLabel(cats, w.catId)} · 글 {w.posts.length} · {fmtMD(lastDate(w))}</small>
+                  <small>{catLabel(cats, w.catId)}{w.rating ? ` · ★${w.rating.toFixed(1)}` : ''} · 글 {w.posts.length} · {fmtMD(lastDate(w))}</small>
                 </div>
               </div>
             ))}
