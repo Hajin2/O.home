@@ -12,7 +12,7 @@ import { useVisibleWorlds } from '@/lib/worldStore';
 import { pushNotif } from '@/lib/notifStore';
 import {
   StoryEp, StoryTopic, StoryCat, StoryComment, StoryStyle, STORY_KEY, STORY_TOPIC_KEY, STORY_CAT_KEY, STORY_CMT_KEY,
-  KIND_LABEL, splitBody, epToText, downloadText, fmtDay,
+  KIND_LABEL, splitBody, epToText, downloadText, fmtDay, bareName,
 } from '@/lib/storyStore';
 import { Face, guessChar, FAINT, LINE } from '@/components/ifs/IfParts';
 import { KTextarea } from '@/components/ui/Kit';
@@ -118,7 +118,7 @@ export function StoryBody({ body, style, cast, clamp }: {
   }, [clamp, body, maxH, size, lh, css.fontFamily, css.letterSpacing]);
   const nameColor = (name: string) => {
     if (style?.nameColor === 'ink') return undefined;
-    const id = guessChar(name, cast, []);
+    const id = guessChar(bareName(name), cast, []);
     return id ? cast.find(c => c.id === id)?.color : undefined;
   };
   const folded = clamp && over && !more;
@@ -139,7 +139,11 @@ export function StoryBody({ body, style, cast, clamp }: {
             fontSize: '.96em', lineHeight: 1.7, textAlign: 'left',
           }}>
             {p.lines.map((l, j) => (
-              <div key={j}><b style={{ color: nameColor(l.name) }}>{l.name}</b> : {l.text}</div>
+              <div key={j}>
+                <b style={{ color: nameColor(l.name) }}>{l.name}</b>
+                {/* 이름 뒤 괄호(나이·시점) — 이름 옆에 옅게 (포크) */}
+                {l.note && <span style={{ fontSize: '.86em', color: 'var(--sub, #5d636d)', marginLeft: 2 }}>({l.note})</span>} : {l.text}
+              </div>
             ))}
           </div>
         ))}

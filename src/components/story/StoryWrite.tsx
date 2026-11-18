@@ -11,7 +11,7 @@ import { IF_KEY, type IfPost } from '@/lib/ifStore';
 import {
   StoryEp, StoryTopic, StoryCast, StoryKind, StoryStyle, StoryVis, KIND_LABEL, normKey, laneOf, orderAt,
   parseStoryBlock, splitList, readDraft, writeDraft, StoryDraft, sameLane,
-} from '@/lib/storyStore';
+  bareName } from '@/lib/storyStore';
 import { Modal } from '@/components/ui/Modal';
 import { KInput, KTextarea, KSelect } from '@/components/ui/Kit';
 import { useToast } from '@/components/ui/Toast';
@@ -184,7 +184,7 @@ export function StoryWrite({ ctx, open, onClose, edit, init, onSaved }: {
     const cast: StoryCast[] = r ? r.members.map(m => ({ charId: m.charId, role: 'main' })) : [...f.cast];
     const missing: string[] = [];
     (head.cast ?? []).forEach(n => {
-      const id = guessChar(n, sortedChars, r?.members.map(m => m.charId) ?? []);
+      const id = guessChar(bareName(n), sortedChars, r?.members.map(m => m.charId) ?? []);
       if (!id) { missing.push(n); return; }
       if (!cast.some(c => c.charId === id)) cast.push({ charId: id, role: 'sub' });
     });

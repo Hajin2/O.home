@@ -5,7 +5,7 @@ import { newId } from '@/lib/postStore';
 import { relEditorUids } from '@/lib/charAccess';
 import {
   StoryEp, StoryTopic, StoryCat, StoryCast, normKey, laneOf, parseStoryBlock, splitStoryBlocks, DEFAULT_CATS,
-} from '@/lib/storyStore';
+  bareName } from '@/lib/storyStore';
 import { Modal } from '@/components/ui/Modal';
 import { KInput, KTextarea, KSelect } from '@/components/ui/Kit';
 import { DragList } from '@/components/ui/DragList';
@@ -49,7 +49,7 @@ export function StoryImport({ ctx, open, onClose }: { ctx: StoryCtx; open: boole
     const cast: StoryCast[] = rel ? rel.members.map(m => ({ charId: m.charId, role: 'main' })) : [];
     const missing: string[] = [];
     (head.cast ?? []).forEach(n => {
-      const id = guessChar(n, sortedChars, rel?.members.map(m => m.charId) ?? []);
+      const id = guessChar(bareName(n), sortedChars, rel?.members.map(m => m.charId) ?? []);
       if (!id) missing.push(n);
       else if (!cast.some(c => c.charId === id)) cast.push({ charId: id, role: 'sub' });
     });

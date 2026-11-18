@@ -92,15 +92,20 @@ export const normKey = (s: string) => s.replace(/[《》「」『』"'“”‘�
 /* ---------- 본문 → 조각 ---------- */
 export type BodyPart =
   | { kind: 'para'; lines: string[] }
-  | { kind: 'talk'; lines: { name: string; text: string }[] };
+  | { kind: 'talk'; lines: { name: string; text: string; note?: string }[] };
 
-/** 「이름 : 대사」 한 줄인가 — 이름은 15자 이내, 문장부호 없이 */
-const TALK = /^([^:：.,!?。…"“”()\[\]]{1,15}?)\s*[:：]\s*(.+)$/;
-export function talkLine(line: string): { name: string; text: string } | null {
+/** 「이름 : 대사」 한 줄인가 — 이름은 15자 이내, 문장부호 없이.
+ *  이름 뒤 괄호 하나는 허용한다 — 「박하진(16) : 대사」처럼 같은 캐릭터를 나이·시점으로 나눠 쓸 때
+ *  (포크, 사용자 제보: 괄호가 들어가면 대사로 못 읽고 그냥 문단이 됐다). 괄호 안은 note로 따로 */
+const TALK = /^([^:：.,!?。…"“”()（）\[\]]{1,15}?)\s*(?:[(（]([^()（）:：]{1,12})[)）])?\s*[:：]\s*(.+)$/;
+export function talkLine(line: string): { name: string; text: string; note?: string } | null {
   const m = TALK.exec(line.trim());
   if (!m || /^https?$/i.test(m[1])) return null;
-  return { name: m[1].trim(), text: m[2].trim() };
+  return { name: m[1].trim(), text: m[3].trim(), ...(m[2] ? { note: m[2].trim() } : {}) };
 }
+
+/** 이름 뒤 괄호 표기(나이·시점 등)를 뗀 이름 — 캐릭터 찾기용. 「박하진(16)」 → 「박하진」 */
+export const bareName = (name: string) => name.replace(/\s*[(（][^()（）]*[)）]\s*$/, '').trim() || name.trim();
 
 /** 본문을 문단 / 대사 묶음으로. 빈 줄은 문단 끝, 이어진 대사 줄은 한 상자 */
 export function splitBody(body: string): BodyPart[] {
