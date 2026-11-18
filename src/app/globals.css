@@ -1838,3 +1838,23 @@ body.edit-on .main-grid.gridlines .wgt{outline-offset:0}
 /* 목록 배경이 반투명이라 뒤의 패널이 비쳐 보였다 — 같은 배경색을 세 겹 깔아 거의 불투명하게(테마 색은 그대로).
    바(.bgm) 안에 있어 뒤 흐리기(backdrop-filter)는 페이지까지 닿지 않는다 */
 .bgm-list{background:linear-gradient(var(--bgm-bg),var(--bgm-bg)),linear-gradient(var(--bgm-bg),var(--bgm-bg)),var(--bgm-bg)}
+
+/* 감상타래 별점·장르 (포크, 사용자 요청) */
+.thr-stars{display:inline-flex;align-items:center;gap:6px;line-height:1;white-space:nowrap}
+.thr-stars .bg{position:relative;display:inline-block;color:#d5d8dd;letter-spacing:.06em}
+.thr-stars .fill{position:absolute;left:0;top:0;overflow:hidden;color:#f2b632;white-space:nowrap}
+.thr-stars b{font-size:.78em;font-weight:700;color:var(--ink)}
+.thr-stars.pick .hit{position:absolute;inset:0;display:grid;grid-template-columns:repeat(10,1fr)}
+.thr-stars.pick .hit button{background:none;border:0;padding:0;cursor:var(--cur-pointer,pointer)}
+.thr-genres{display:flex;flex-wrap:wrap;gap:4px}
+.thr-genres span{font-size:calc(10.5px*var(--fs,1));padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--sub);background:var(--panel-solid)}
+.thr-genre-pick{display:flex;flex-wrap:wrap;gap:6px}
+.thr-genre-pick button{font-size:calc(12px*var(--fs,1));padding:5px 12px;border-radius:20px;border:1px solid var(--line);color:var(--sub);background:var(--panel-solid);transition:.12s}
+.thr-genre-pick button.on{background:#1d2025;border-color:#1d2025;color:#fff}
+.thr-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px}
+/* 감상타래 리스트 카드 B안 (포크, 사용자 확정) — 별점·장르를 포스터 아래쪽 그늘 위에 */
+.thr-card-ov{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:34px 11px 10px;background:linear-gradient(transparent,rgba(12,14,18,.84));pointer-events:none}
+.thr-card-ov .thr-stars .bg{color:rgba(255,255,255,.28)}
+.thr-card-ov .thr-stars b{color:#fff}
+.thr-card-ov .gn{margin-top:4px;font-size:calc(10.5px*var(--fs,1));color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thr-card .info .row.meta{margin-top:3px;font-size:calc(10.5px*var(--fs,1));color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}

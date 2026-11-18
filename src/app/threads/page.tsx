@@ -327,6 +327,15 @@ function ThreadsPageInner() {
                 <span className="pill dark" style={threadBadgeStyle(cats.find(c => c.id === w.catId))}>
                   {catLabel(cats, w.catId)}
                 </span>
+                {/* 별점·장르는 포스터 아래쪽 그늘 위에 (포크, 사용자 확정 B안) — 흰 칸을 세 줄로 고정해 카드 높이를 맞춘다 */}
+                {(w.rating || genreLabels(settings.genres, w.genres).length > 0) && (
+                  <div className="thr-card-ov">
+                    {w.rating ? <Stars value={w.rating} size={13} /> : null}
+                    {genreLabels(settings.genres, w.genres).length > 0 && (
+                      <div className="gn">{genreLabels(settings.genres, w.genres).join(' · ')}</div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="info">
                 <div className="tt" style={{ fontFamily: familyOf(w.titleFontId) }}>{w.title}</div>
@@ -337,15 +346,7 @@ function ThreadsPageInner() {
                     overflow: 'hidden', lineHeight: 1.45,
                   }}>{w.author}{w.authorRole ? ` ${w.authorRole}` : ''}</div>
                 )}
-                {/* 별점 · 장르 (포크, 사용자 요청) */}
-                {w.rating ? <div className="row"><Stars value={w.rating} size={12} /></div> : null}
-                {genreLabels(settings.genres, w.genres).length > 0 && (
-                  <div className="row thr-genres" style={{ margin: '3px 0' }}>
-                    {genreLabels(settings.genres, w.genres).map(g => <span key={g}>{g}</span>)}
-                  </div>
-                )}
-                <div className="row"><b>글</b> {w.posts.length}</div>
-                <div className="row"><b>최근</b> {fmtMD(lastDate(w))}{w.authorNick && ` · ${w.authorNick}`}</div>
+                <div className="row meta">글 {w.posts.length} · {fmtMD(lastDate(w))}{w.authorNick && ` · ${w.authorNick}`}</div>
               </div>
             </div>
           ))}
