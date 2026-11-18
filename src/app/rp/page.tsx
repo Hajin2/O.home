@@ -25,6 +25,13 @@ function Face({ ch, className }: { ch?: Character; className: string }) {
   );
 }
 
+/** 오너(회원 본인) 얼굴 — 닉네임 첫 글자 (포크, 사용자 요청: 오너끼리 대화용) */
+function OwnerFace({ name, className }: { name: string; className: string }) {
+  return (
+    <div className={`${className} owner-f`}>{Array.from(name.trim())[0] ?? '·'}</div>
+  );
+}
+
 const fmtHM = (iso: string) => {
   const d = new Date(iso);
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
@@ -116,7 +123,7 @@ export default function RpPage() {
     return new Map(order.map((cid, i) => [cid, i % 2 === 1]));
   }, [sel, msgRows, rel]);
 
-  const [speaker, setSpeaker] = useState<string>('');   // charId | 'desc' (플레이어 발화는 없앴다, v2.0)
+  const [speaker, setSpeaker] = useState<string>('');   // 'me'(오너 닉네임) | 'desc' | charId
   const [pickOpen, setPickOpen] = useState(false);
   /* 고른 발화자는 방을 바꿀 때만 처음으로 되돌린다 (포크, 사용자 제보 — 「한 번 보내면 선택이 리셋된다」).
      예전엔 캐릭터 목록이 바뀔 때마다 첫 캐릭터로 돌렸는데, 말을 보낼 때마다 서버에서 목록을 다시 받아
@@ -127,13 +134,13 @@ export default function RpPage() {
   const speakKey = speakChars.map(c => c.id).join(',');
   useEffect(() => {
     const ids = speakKey ? speakKey.split(',') : [];
-    const ok = (x?: string) => !!x && (x === 'desc' || ids.includes(x));
+    const ok = (x?: string) => !!x && (x === 'me' || x === 'desc' || ids.includes(x));
     const roomChanged = prevRoom.current !== sel?.id;
     prevRoom.current = sel?.id;
     const remembered = sel ? lastSpeaker.current[sel.id] : undefined;
     setSpeaker(cur => (roomChanged
-      ? (ok(remembered) ? remembered! : ids[0] ?? 'desc')          // 방을 바꿨으면 그 방에서 마지막으로 고른 것
-      : (ok(cur) ? cur : ids[0] ?? 'desc')));                      // 같은 방이면 고른 것 그대로 (빠졌을 때만 바꿈)
+      ? (ok(remembered) ? remembered! : 'me')          // 방을 바꿨으면 그 방에서 마지막으로 고른 것 (처음이면 내 닉네임)
+      : (ok(cur) ? cur : 'me')));                      // 같은 방이면 고른 것 그대로 (빠졌을 때만 바꿈)
     if (roomChanged) setPickOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sel?.id, speakKey]);
@@ -160,7 +167,7 @@ export default function RpPage() {
     if (!sel || !user) return;
     let t = text.trim();
     if (!t) return;
-    let kind: RpMessage['kind'] = speaker === 'desc' ? 'desc' : 'char';
+    let kind: RpMessage['kind'] = speaker === 'desc' ? 'desc' : speaker === 'me' ? 'player' : 'char';
     if (t.startsWith('/desc ')) { kind = 'desc'; t = t.slice(6).trim(); } // /desc 명령 (v1.8)
     if (!t) return;
     const m: RpMessage = {
@@ -213,6 +220,7 @@ export default function RpPage() {
   const [nAu, setNAu] = useState('base');   // 고른 자관의 AU (v2.0 사용자 요청)
   const [nMembers, setNMembers] = useState<string[]>([]);
   const pool = useMembers();
+  const nickOf = (id: string) => (id === user?.id ? user?.nickname : undefined) ?? pool.find(pp => pp.id === id)?.nickname ?? '오너';
   // 개설 모달에서 보여 줄 자동 참여자 (개설자 제외) — 권한자를 이름으로 (v2.0)
   const newRelGrantNames = (() => {
     if (nRel === 'none') return [] as string[];
@@ -308,8 +316,8 @@ export default function RpPage() {
       if (m.kind === 'desc') {
         return `<p style="text-align:center;color:#4a505a;line-height:1.8;margin:14px 0">${esc(m.text)}</p>`;
       }
-      const ch = rpChars.find(c => c.id === m.charId);
-      const name = ch?.name ?? '';
+      const ch = m.kind === 'player' ? undefined : rpChars.find(c => c.id === m.charId);
+      const name = m.kind === 'player' ? nickOf(m.authorId) : ch?.name ?? '';
       const color = ch?.color ?? '#5d636d';
       return `<div style="margin:10px 0;line-height:1.7"><b style="color:${color};letter-spacing:.05em">${esc(name)}</b> — ${esc(m.text)}</div>`;
     }).join('\n');
@@ -359,8 +367,9 @@ ${rows}
     r.status === 'done' ? (r.isPublic ? '완결 · 공개 전환됨' : '완결') : '진행중',
   ].join(' · ');
 
-  // 회원 계정(오너) 이름은 화면에 내지 않는다 — 계정은 접근 권한용일 뿐 (v2.0 사용자 요청).
-  const speakerLabel = speaker === 'desc' ? '지문 (DESC)' : (rpChars.find(c => c.id === speaker)?.name ?? '');
+  // 오너 발화는 닉네임으로 (포크, 사용자 요청 — 역극보다 오너끼리 대화 창구로 더 많이 쓴다)
+  const myNick = nickOf(user.id);
+  const speakerLabel = speaker === 'desc' ? '지문 (DESC)' : speaker === 'me' ? myNick : (rpChars.find(c => c.id === speaker)?.name ?? '');
   const speakerChar = rpChars.find(c => c.id === speaker);
 
   return (
@@ -456,17 +465,18 @@ ${rows}
                       </div>
                     );
                   }
-                  const ch = rpChars.find(c => c.id === m.charId);
-                  const name = ch?.name ?? '';
+                  const owner = m.kind === 'player';
+                  const ch = owner ? undefined : rpChars.find(c => c.id === m.charId);
+                  const name = owner ? nickOf(m.authorId) : ch?.name ?? '';
                   // 영역은 「보는 사람」 기준 (v2.0 사용자 확정): 내가 권한을 가진 캐릭터가 오른쪽,
                   // 아닌 캐릭터가 왼쪽. 관리자에게는 자캐(own)가 자기 캐릭터다.
                   // 그래서 같은 방이라도 사람마다 좌우가 반대로 보인다(각자 자기 쪽이 오른쪽).
                   // 삭제된 캐릭터는 발화 당시 기록(charOwn)으로 판단.
                   // 친 사람 기준 — 혼자만 말한 방이면 캐릭터 순서로 (soloSides 참고, 포크)
-                  const rightSide = soloSides ? !!soloSides.get(m.charId ?? '') : m.authorId === user.id;
+                  const rightSide = soloSides && !owner ? !!soloSides.get(m.charId ?? '') : m.authorId === user.id;
                   return (
-                    <div key={m.id} className={`msg ${rightSide ? 'me' : ''}`} style={{ ['--cc' as string]: hexRgb(ch?.color) }}>
-                      <Face ch={ch} className="face" />
+                    <div key={m.id} className={`msg ${rightSide ? 'me' : ''} ${owner ? 'owner' : ''}`} style={{ ['--cc' as string]: hexRgb(ch?.color) }}>
+                      {owner ? <OwnerFace name={name} className="face" /> : <Face ch={ch} className="face" />}
                       <div>
                         <div className="who">{name}</div>
                         <div className="bub">{m.text}</div>
@@ -488,15 +498,20 @@ ${rows}
 
               {sel.status === 'ongoing' && (
                 <div className="rp-input">
-                  {/* 발화자 선택 — 캐릭터 / 지문 (v2.0 사용자 확정: 역극에는 이 둘만 있으면 된다) */}
+                  {/* 발화자 선택 — 내 닉네임 / 지문 / 캐릭터 */}
                   <div className="char-pick" onClick={() => setPickOpen(o => !o)}>
                     {speaker === 'desc'
                       ? <div className="f" style={{ display: 'grid', placeItems: 'center', fontSize: 13, color: 'var(--sub)' }}>❝</div>
+                      : speaker === 'me' ? <OwnerFace name={myNick} className="f" />
                       : <Face ch={speakerChar} className="f" />}
                     <small>{speakerLabel} ▾</small>
                     {pickOpen && (
                       <div className="rp-pick-pop" onClick={e => e.stopPropagation()}>
-                        {/* 지문은 맨 위에 — 캐릭터가 많으면 맨 아래까지 내려가야 해서 찾기 힘들었다 (포크, 사용자 제보) */}
+                        {/* 맨 위는 내 닉네임(오너 발화), 그다음 지문 — 오너끼리 대화가 제일 많다 (포크, 사용자 요청).
+                            지문도 위쪽에 — 캐릭터가 많으면 맨 아래까지 내려가야 해서 찾기 힘들었다 (포크, 사용자 제보) */}
+                        <button onClick={() => { setSpeaker('me'); setPickOpen(false); }}>
+                          <OwnerFace name={myNick} className="f" />{myNick}
+                        </button>
                         <button onClick={() => { setSpeaker('desc'); setPickOpen(false); }}>
                           <span className="f" style={{ display: 'grid', placeItems: 'center', color: 'var(--sub)' }}>❝</span>
                           지문 (DESC)
